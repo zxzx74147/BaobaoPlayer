@@ -27,7 +27,7 @@ public class SurfaceDecoder {
     MediaCodec mAudioDecoder = null;
 
     CodecOutputSurface outputSurface = null;
-    GPUImageFilter mFilter = null;
+    private GPUImageFilter mFilter = null;
 
     MediaExtractor extractor = null;
 
@@ -42,46 +42,60 @@ public class SurfaceDecoder {
 
 
     void SurfaceDecoderPrePare(Surface encodersurface) throws IOException {
-            extractor = new MediaExtractor();
-            if (uri != null) {
-                extractor.setDataSource(PlayerApplication.sharedInstance(), uri, null);
-            } else {
-                throw new RuntimeException("No video uri found ");
-            }
-            mDecodeTrackVideoIndex = selectVideoTrack(extractor);
-            if (mDecodeTrackVideoIndex < 0) {
-                throw new RuntimeException("No video track found in " + uri.getPath());
-            }
-            extractor.selectTrack(mDecodeTrackVideoIndex);
+        extractor = new MediaExtractor();
+        if (uri != null) {
+            extractor.setDataSource(PlayerApplication.sharedInstance(), uri, null);
+        } else {
+            throw new RuntimeException("No video uri found ");
+        }
 
-            MediaFormat format = extractor.getTrackFormat(mDecodeTrackVideoIndex);
-            if (VERBOSE) {
-                Log.d(TAG, "Video size is " + format.getInteger(MediaFormat.KEY_WIDTH) + "x" +
-                        format.getInteger(MediaFormat.KEY_HEIGHT));
-            }
-            mMeidaDuration = format.getLong(MediaFormat.KEY_DURATION);
-            int videoWidth = format.getInteger(MediaFormat.KEY_WIDTH);
-            int videoHeight = format.getInteger(MediaFormat.KEY_HEIGHT);
-            int rotation = 0;
-            try {
-                rotation = format.getInteger(MediaFormat.KEY_ROTATION);
-            }catch (Exception e){
+        //Video
+        mDecodeTrackVideoIndex = selectVideoTrack(extractor);
+        if (mDecodeTrackVideoIndex < 0) {
+            throw new RuntimeException("No video track found in " + uri.getPath());
+        }
+        extractor.selectTrack(mDecodeTrackVideoIndex);
 
-            }
-            if(rotation%180==90){
-                videoHeight = videoHeight+videoWidth;
-                videoWidth = videoHeight-videoWidth;
-                videoHeight= videoHeight-videoWidth;
-            }
-            outputSurface = new CodecOutputSurface(mDecodeWidth, mDecodeHeight, encodersurface);
-            outputSurface.setFilter(mFilter);
-            outputSurface.setVideoWH(videoWidth, videoHeight);
+        MediaFormat format = extractor.getTrackFormat(mDecodeTrackVideoIndex);
+        if (VERBOSE) {
+            Log.d(TAG, "Video size is " + format.getInteger(MediaFormat.KEY_WIDTH) + "x" +
+                    format.getInteger(MediaFormat.KEY_HEIGHT));
+        }
+        mMeidaDuration = format.getLong(MediaFormat.KEY_DURATION);
+        int videoWidth = format.getInteger(MediaFormat.KEY_WIDTH);
+        int videoHeight = format.getInteger(MediaFormat.KEY_HEIGHT);
+        int rotation = 0;
+        try {
+            rotation = format.getInteger(MediaFormat.KEY_ROTATION);
+        } catch (Exception e) {
 
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            mVideoDecoder = MediaCodec.createDecoderByType(mime);
-            mVideoDecoder.configure(format, outputSurface.getSurface(), null, 0);
-            mVideoDecoder.start();
+        }
+        if (rotation % 180 == 90) {
+            videoHeight = videoHeight + videoWidth;
+            videoWidth = videoHeight - videoWidth;
+            videoHeight = videoHeight - videoWidth;
+        }
+        outputSurface = new CodecOutputSurface(mDecodeWidth, mDecodeHeight, encodersurface);
+        outputSurface.setFilter(mFilter);
+        outputSurface.setVideoWH(videoWidth, videoHeight);
 
+        String mime = format.getString(MediaFormat.KEY_MIME);
+        mVideoDecoder = MediaCodec.createDecoderByType(mime);
+        mVideoDecoder.configure(format, outputSurface.getSurface(), null, 0);
+        mVideoDecoder.start();
+
+        //Audio
+        mDecodeTrackAudioIndex = selectAudioTrack(extractor);
+        if (mDecodeTrackAudioIndex < 0) {
+            throw new RuntimeException("No video track found in " + uri.getPath());
+        }
+        extractor.selectTrack(mDecodeTrackAudioIndex);
+
+        MediaFormat audioFormat = extractor.getTrackFormat(mDecodeTrackAudioIndex);
+        String audioMime = audioFormat.getString(MediaFormat.KEY_MIME);
+        mAudioDecoder = MediaCodec.createDecoderByType(audioMime);
+        mAudioDecoder.configure(audioFormat,null,null,0);
+        mAudioDecoder.start();
 
     }
 

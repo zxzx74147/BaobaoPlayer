@@ -260,10 +260,10 @@ public class BBMediaMuxter {
                             1);
             outputAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_AUDIO_BIT_RATE);
             outputAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, OUTPUT_AUDIO_AAC_PROFILE);
-            // Create a MediaCodec for the desired codec, then configure it as an encoder with
+            // Create a MediaCodec for the desired codec, then configure it as an mVideoEncoder with
             // our desired properties. Request a Surface to use for input.
-            mAudioEncodeCodec = MediaCodec.createByCodecName(codecInfo.getName());
-            mAudioEncodeCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            mAudioEncodeCodec = MediaCodec.createByCodecName(audioCodecInfo.getName());
+            mAudioEncodeCodec.configure(outputAudioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
             mAudioEncodeCodec.start();
 
 
@@ -377,7 +377,7 @@ public class BBMediaMuxter {
             }
 
 
-            //deal encoder
+            //deal mVideoEncoder
             final int TIMEOUT_USEC = 20000;
             MediaCodec.BufferInfo mDecodeInfo = new MediaCodec.BufferInfo();
             MediaCodec.BufferInfo mEncodeInfo = new MediaCodec.BufferInfo();
@@ -398,7 +398,6 @@ public class BBMediaMuxter {
                 MediaCodec codec = mDecodeTable.get(trackIndex);
 
                 int inputBufIndex = codec.dequeueInputBuffer(TIMEOUT_USEC);
-
 
                 ByteBuffer[] inputBuffers = codec.getInputBuffers();
                 ByteBuffer[] outputBuffers = codec.getOutputBuffers();
@@ -463,8 +462,6 @@ public class BBMediaMuxter {
                     continue;
                 }
 
-
-
                 ByteBuffer[] videoEncoderOutputBuffers = mVideoEncodeCodec.getOutputBuffers();
                 ByteBuffer[] audioEncoderOutputBuffers = mAudioEncodeCodec.getOutputBuffers();
                 ByteBuffer[] audioEncoderInputBuffers = mAudioEncodeCodec.getInputBuffers();
@@ -479,16 +476,16 @@ public class BBMediaMuxter {
                         int encoderOutputBufferIndex = mVideoEncodeCodec.dequeueOutputBuffer(
                                 mEncodeInfo, TIMEOUT_USEC);
                         if (encoderOutputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                            if (VERBOSE) Log.d(TAG, "no video encoder output buffer");
+                            if (VERBOSE) Log.d(TAG, "no video mVideoEncoder output buffer");
                         }
                         if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
-                            if (VERBOSE) Log.d(TAG, "video encoder: output buffers changed");
+                            if (VERBOSE) Log.d(TAG, "video mVideoEncoder: output buffers changed");
                             videoEncoderOutputBuffers = mVideoEncodeCodec.getOutputBuffers();
                         }
                         if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                            if (VERBOSE) Log.d(TAG, "video encoder: output format changed");
+                            if (VERBOSE) Log.d(TAG, "video mVideoEncoder: output format changed");
                             if (mVideoMixTrack >= 0) {
-//                                Assert.fail("video encoder changed its output format again?");
+//                                Assert.fail("video mVideoEncoder changed its output format again?");
                             }
                             encoderOutputVideoFormat = mVideoEncodeCodec.getOutputFormat();
                         }
@@ -500,7 +497,7 @@ public class BBMediaMuxter {
                                 videoEncoderOutputBuffers[encoderOutputBufferIndex];
                         if ((mEncodeInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG)
                                 != 0) {
-                            if (VERBOSE) Log.d(TAG, "video encoder: codec config buffer");
+                            if (VERBOSE) Log.d(TAG, "video mVideoEncoder: codec config buffer");
                             // Simply ignore codec config buffers.
                             mVideoEncodeCodec.releaseOutputBuffer(encoderOutputBufferIndex, false);
 //                            break;
@@ -511,7 +508,7 @@ public class BBMediaMuxter {
                         }
                         if ((mEncodeInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                                 != 0) {
-                            if (VERBOSE) Log.d(TAG, "video encoder: EOS");
+                            if (VERBOSE) Log.d(TAG, "video mVideoEncoder: EOS");
                         }
                         TimeStampLogUtil.logTimeStamp("video muxer====");
                     } else if (trackIndex == mAudioDecodeIndex) {
@@ -520,11 +517,11 @@ public class BBMediaMuxter {
 ////                        while (!isCancel) {
 //                            encoderInputBufferIndex = mAudioEncodeCodec.dequeueInputBuffer(TIMEOUT_USEC);
 //                            if (encoderInputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-//                                if (VERBOSE) Log.d(TAG, "no audio encoder input buffer");
+//                                if (VERBOSE) Log.d(TAG, "no audio mVideoEncoder input buffer");
 ////                                continue;
 //                            }
 //                            if (VERBOSE) {
-//                                Log.d(TAG, "audio encoder: returned input buffer: " + encoderInputBufferIndex);
+//                                Log.d(TAG, "audio mVideoEncoder: returned input buffer: " + encoderInputBufferIndex);
 //                            }
 ////                            if (encoderInputBufferIndex >= 0) {
 ////                                break;
@@ -551,19 +548,19 @@ public class BBMediaMuxter {
 //                                encoderOutputBufferIndex = mAudioEncodeCodec.dequeueOutputBuffer(
 //                                        mEncodeInfo, TIMEOUT_USEC);
 //                                if (encoderOutputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-//                                    if (VERBOSE) Log.d(TAG, "no audio encoder output buffer");
+//                                    if (VERBOSE) Log.d(TAG, "no audio mVideoEncoder output buffer");
 //                                    continue;
 //                                }
 //                                if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
 //                                    if (VERBOSE)
-//                                        Log.d(TAG, "audio encoder: output buffers changed");
+//                                        Log.d(TAG, "audio mVideoEncoder: output buffers changed");
 //                                    audioEncoderOutputBuffers = mAudioEncodeCodec.getOutputBuffers();
 //                                    continue;
 //                                }
 //                                if (encoderOutputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-//                                    if (VERBOSE) Log.d(TAG, "audio encoder: output format changed");
+//                                    if (VERBOSE) Log.d(TAG, "audio mVideoEncoder: output format changed");
 ////                                    if (outputAudioTrack >= 0) {
-////                                    fail("audio encoder changed its output format again?");
+////                                    fail("audio mVideoEncoder changed its output format again?");
 ////                                    }
 //                                    encoderOutputAudioFormat = mAudioEncodeCodec.getOutputFormat();
 //                                    continue;
@@ -577,23 +574,23 @@ public class BBMediaMuxter {
 //                                    audioEncoderOutputBuffers[encoderOutputBufferIndex];
 //                            if ((mEncodeInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG)
 //                                    != 0) {
-//                                if (VERBOSE) Log.d(TAG, "audio encoder: codec config buffer");
+//                                if (VERBOSE) Log.d(TAG, "audio mVideoEncoder: codec config buffer");
 //                                // Simply ignore codec config buffers.
 //                                mAudioEncodeCodec.releaseOutputBuffer(encoderOutputBufferIndex, false);
 //                                break;
 //                            }
 //                            if (VERBOSE) {
-//                                Log.d(TAG, "audio encoder: returned buffer for time "
+//                                Log.d(TAG, "audio mVideoEncoder: returned buffer for time "
 //                                        + mEncodeInfo.presentationTimeUs);
 //                            }
 //                            if (mEncodeInfo.size != 0) {
-//                                Log.d(TAG, "audio encoder time=:  " + trackIndex+"|"+mEncodeInfo.presentationTimeUs);
+//                                Log.d(TAG, "audio mVideoEncoder time=:  " + trackIndex+"|"+mEncodeInfo.presentationTimeUs);
 //                                mMuxer.writeSampleData(
 //                                        mAudioMixTrack, encoderOutputBuffer, mEncodeInfo);
 //                            }
 //                            if ((mEncodeInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM)
 //                                    != 0) {
-//                                if (VERBOSE) Log.d(TAG, "audio encoder: EOS");
+//                                if (VERBOSE) Log.d(TAG, "audio mVideoEncoder: EOS");
 ////                                    audioEncoderDone = true;
 //                            }
 //                            mAudioEncodeCodec.releaseOutputBuffer(encoderOutputBufferIndex, false);

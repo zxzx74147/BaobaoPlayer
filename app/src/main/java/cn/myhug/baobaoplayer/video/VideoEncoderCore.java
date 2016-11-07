@@ -31,7 +31,7 @@ import java.nio.ByteBuffer;
  * This class wraps up the core components used for surface-input video encoding.
  * <p>
  * Once created, frames are fed to the input surface.  Remember to provide the presentation
- * time stamp, and always call drainEncoder() before swapBuffers() to ensure that the
+ * time stamp, and always call drainVideoEncoder() before swapBuffers() to ensure that the
  * producer side doesn't get backed up.
  * <p>
  * This class is not thread-safe, with one exception: it is valid to use the input surface
@@ -130,7 +130,7 @@ public class VideoEncoderCore {
      */
     public void drainEncoder(boolean endOfStream) {
         final int TIMEOUT_USEC = 10000;
-        if (VERBOSE) Log.d(TAG, "drainEncoder(" + endOfStream + ")");
+        if (VERBOSE) Log.d(TAG, "drainVideoEncoder(" + endOfStream + ")");
 
         if (endOfStream) {
             if (VERBOSE) Log.d(TAG, "sending EOS to encoder");

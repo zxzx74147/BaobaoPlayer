@@ -14,6 +14,13 @@ public class Mp4Config {
     public static final int VIDEO_I_FRAME_INTERVAL = 10;
     public static final int VIDEO_FRAME_RATE = 24;
 
+    public static final String MIME_TYPE_AUDIO = "audio/mp4a-latm";    // H.264 Advanced Video Coding
+    public static final int OUTPUT_AUDIO_BIT_RATE = 32 * 1024;
+    public static final int OUTPUT_AUDIO_AAC_PROFILE =
+            MediaCodecInfo.CodecProfileLevel.AACObjectHE;
+    public static final int OUTPUT_AUDIO_SAMPLE_RATE_HZ = 44100; // Must match the input stream.
+
+
     public static MediaCodecInfo selectCodec(String mimeType) {
         int numCodecs = MediaCodecList.getCodecCount();
         for (int i = 0; i < numCodecs; i++) {
