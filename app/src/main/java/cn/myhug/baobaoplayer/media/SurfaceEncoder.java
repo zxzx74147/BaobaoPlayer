@@ -38,8 +38,6 @@ public class SurfaceEncoder {
     public void VideoEncodePrepare()
     {
         String outputPath = FileUtil.getFile("output.mp4").toString();
-//        String outputPath = new File(Environment.getExternalStorageDirectory(),
-//                "mytest." + WIDTH + "x" + HEIGHT + ".mp4").toString();
 
         mBufferInfo = new MediaCodec.BufferInfo();
 
@@ -52,7 +50,6 @@ public class SurfaceEncoder {
         format.setInteger(MediaFormat.KEY_BIT_RATE, BIT_RATE);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
-
 
         encoder = null;
 

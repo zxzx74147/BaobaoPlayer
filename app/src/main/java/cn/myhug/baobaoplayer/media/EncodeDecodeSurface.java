@@ -132,7 +132,7 @@ public class EncodeDecodeSurface {
 
     void doExtract() throws IOException {
         final int TIMEOUT_USEC = 100000;
-        ByteBuffer[] decoderInputBuffers = mDecoder.decoder.getInputBuffers();
+        ByteBuffer[] decoderInputBuffers = mDecoder.mVideoDecoder.getInputBuffers();
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         int inputChunk = 0;
         int decodeCount = 0;
@@ -143,21 +143,21 @@ public class EncodeDecodeSurface {
         while (!outputDone) {
             if (VERBOSE) Log.d(TAG, "loop");
 
-            // Feed more data to the decoder.
+            // Feed more data to the mVideoDecoder.
             if (!inputDone) {
-                int inputBufIndex = mDecoder.decoder.dequeueInputBuffer(TIMEOUT_USEC);
+                int inputBufIndex = mDecoder.mVideoDecoder.dequeueInputBuffer(TIMEOUT_USEC);
                 if (inputBufIndex >= 0) {
                     ByteBuffer inputBuf = decoderInputBuffers[inputBufIndex];
                     int chunkSize = mDecoder.extractor.readSampleData(inputBuf, 0);
                     if (chunkSize < 0) {
-                        mDecoder.decoder.queueInputBuffer(inputBufIndex, 0, 0, 0L,
+                        mDecoder.mVideoDecoder.queueInputBuffer(inputBufIndex, 0, 0, 0L,
                                 MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                         inputDone = true;
                         if (VERBOSE) Log.d(TAG, "sent input EOS");
                     } else {
-                        if (mDecoder.extractor.getSampleTrackIndex() != mDecoder.DecodetrackIndex) {
+                        if (mDecoder.extractor.getSampleTrackIndex() != mDecoder.mDecodeTrackVideoIndex) {
                             Log.w(TAG, "WEIRD: got sample from track " +
-                                    mDecoder.extractor.getSampleTrackIndex() + ", expected " + mDecoder.DecodetrackIndex);
+                                    mDecoder.extractor.getSampleTrackIndex() + ", expected " + mDecoder.mDecodeTrackVideoIndex);
                         }
                         long presentationTimeUs = mDecoder.extractor.getSampleTime();
                         long duration = mDecoder.getDuration();
@@ -171,7 +171,7 @@ public class EncodeDecodeSurface {
                                 mHandler.sendMessage(msg);
                             }
                         }
-                        mDecoder.decoder.queueInputBuffer(inputBufIndex, 0, chunkSize,
+                        mDecoder.mVideoDecoder.queueInputBuffer(inputBufIndex, 0, chunkSize,
                                 presentationTimeUs, 0 /*flags*/);
                         if (VERBOSE) {
                             Log.d(TAG, "submitted frame " + inputChunk + " to dec, size=" +
@@ -186,20 +186,20 @@ public class EncodeDecodeSurface {
             }
 
             if (!outputDone) {
-                int decoderStatus = mDecoder.decoder.dequeueOutputBuffer(info, TIMEOUT_USEC);
+                int decoderStatus = mDecoder.mVideoDecoder.dequeueOutputBuffer(info, TIMEOUT_USEC);
                 if (decoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                     // no output available yet
-                    if (VERBOSE) Log.d(TAG, "no output from decoder available");
+                    if (VERBOSE) Log.d(TAG, "no output from mVideoDecoder available");
                 } else if (decoderStatus == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
                     // not important for us, since we're using Surface
-                    if (VERBOSE) Log.d(TAG, "decoder output buffers changed");
+                    if (VERBOSE) Log.d(TAG, "mVideoDecoder output buffers changed");
                 } else if (decoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    MediaFormat newFormat = mDecoder.decoder.getOutputFormat();
-                    if (VERBOSE) Log.d(TAG, "decoder output format changed: " + newFormat);
+                    MediaFormat newFormat = mDecoder.mVideoDecoder.getOutputFormat();
+                    if (VERBOSE) Log.d(TAG, "mVideoDecoder output format changed: " + newFormat);
                 } else if (decoderStatus < 0) {
 
                 } else { // decoderStatus >= 0
-                    if (VERBOSE) Log.d(TAG, "surface decoder given buffer " + decoderStatus +
+                    if (VERBOSE) Log.d(TAG, "surface mVideoDecoder given buffer " + decoderStatus +
                             " (size=" + info.size + ")");
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                         if (VERBOSE) Log.d(TAG, "output EOS");
@@ -208,7 +208,7 @@ public class EncodeDecodeSurface {
 
                     boolean doRender = (info.size != 0);
 
-                    mDecoder.decoder.releaseOutputBuffer(decoderStatus, doRender);
+                    mDecoder.mVideoDecoder.releaseOutputBuffer(decoderStatus, doRender);
                     if (doRender) {
                         if (VERBOSE) Log.d(TAG, "awaiting decode of frame " + decodeCount);
 

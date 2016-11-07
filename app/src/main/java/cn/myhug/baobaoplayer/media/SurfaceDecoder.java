@@ -23,7 +23,8 @@ public class SurfaceDecoder {
     private int mDecodeWidth = Mp4Config.VIDEO_WIDTH;
     private int mDecodeHeight = Mp4Config.VIDEO_HEIGHT;
 
-    MediaCodec decoder = null;
+    MediaCodec mVideoDecoder = null;
+    MediaCodec mAudioDecoder = null;
 
     CodecOutputSurface outputSurface = null;
     GPUImageFilter mFilter = null;
@@ -31,7 +32,8 @@ public class SurfaceDecoder {
     MediaExtractor extractor = null;
 
 
-    public int DecodetrackIndex;
+    public int mDecodeTrackVideoIndex;
+    public int mDecodeTrackAudioIndex;
 
     private long mMeidaDuration = 0;
 
@@ -46,13 +48,13 @@ public class SurfaceDecoder {
             } else {
                 throw new RuntimeException("No video uri found ");
             }
-            DecodetrackIndex = selectTrack(extractor);
-            if (DecodetrackIndex < 0) {
+            mDecodeTrackVideoIndex = selectVideoTrack(extractor);
+            if (mDecodeTrackVideoIndex < 0) {
                 throw new RuntimeException("No video track found in " + uri.getPath());
             }
-            extractor.selectTrack(DecodetrackIndex);
+            extractor.selectTrack(mDecodeTrackVideoIndex);
 
-            MediaFormat format = extractor.getTrackFormat(DecodetrackIndex);
+            MediaFormat format = extractor.getTrackFormat(mDecodeTrackVideoIndex);
             if (VERBOSE) {
                 Log.d(TAG, "Video size is " + format.getInteger(MediaFormat.KEY_WIDTH) + "x" +
                         format.getInteger(MediaFormat.KEY_HEIGHT));
@@ -76,9 +78,9 @@ public class SurfaceDecoder {
             outputSurface.setVideoWH(videoWidth, videoHeight);
 
             String mime = format.getString(MediaFormat.KEY_MIME);
-            decoder = MediaCodec.createDecoderByType(mime);
-            decoder.configure(format, outputSurface.getSurface(), null, 0);
-            decoder.start();
+            mVideoDecoder = MediaCodec.createDecoderByType(mime);
+            mVideoDecoder.configure(format, outputSurface.getSurface(), null, 0);
+            mVideoDecoder.start();
 
 
     }
@@ -88,7 +90,7 @@ public class SurfaceDecoder {
     }
 
 
-    private int selectTrack(MediaExtractor extractor) {
+    private int selectVideoTrack(MediaExtractor extractor) {
         // Select the first video track we find, ignore the rest.
         int numTracks = extractor.getTrackCount();
         for (int i = 0; i < numTracks; i++) {
@@ -105,12 +107,29 @@ public class SurfaceDecoder {
         return -1;
     }
 
+    private int selectAudioTrack(MediaExtractor extractor) {
+        // Select the first video track we find, ignore the rest.
+        int numTracks = extractor.getTrackCount();
+        for (int i = 0; i < numTracks; i++) {
+            MediaFormat format = extractor.getTrackFormat(i);
+            String mime = format.getString(MediaFormat.KEY_MIME);
+            if (mime.startsWith("audio/")) {
+                if (VERBOSE) {
+                    Log.d(TAG, "Extractor selected track " + i + " (" + mime + "): " + format);
+                }
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
 
     void release() {
-        if (decoder != null) {
-            decoder.stop();
-            decoder.release();
-            decoder = null;
+        if (mVideoDecoder != null) {
+            mVideoDecoder.stop();
+            mVideoDecoder.release();
+            mVideoDecoder = null;
         }
         if (extractor != null) {
             extractor.release();

@@ -340,7 +340,7 @@ public class BBMediaMuxter {
 
 
 
-            //deal decoder
+            //deal mVideoDecoder
             int numTracks = mVideoInputExtractor.getTrackCount();
             try {
                 for (int i = 0; i < numTracks; ++i) {
@@ -435,7 +435,7 @@ public class BBMediaMuxter {
                         default:
 
                             if ((mDecodeInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                                if (VERBOSE) Log.d(TAG, "video decoder: codec config buffer");
+                                if (VERBOSE) Log.d(TAG, "video mVideoDecoder: codec config buffer");
                                 codec.releaseOutputBuffer(mDecodeOutputIndex, false);
                             }else {
                                 ByteBuffer outBuffer = outputBuffers[mDecodeOutputIndex];
@@ -534,8 +534,8 @@ public class BBMediaMuxter {
 //                        int size = mDecodeInfo.size;
 //                        long presentationTime = mDecodeInfo.presentationTimeUs;
 //                        if (VERBOSE) {
-//                            Log.d(TAG, "audio decoder: pending buffer of size " + size);
-//                            Log.d(TAG, "audio decoder: pending buffer for time ====== " + mDecodeInfo.presentationTimeUs);
+//                            Log.d(TAG, "audio mVideoDecoder: pending buffer of size " + size);
+//                            Log.d(TAG, "audio mVideoDecoder: pending buffer for time ====== " + mDecodeInfo.presentationTimeUs);
 //                        }
 //                        if (size >= 0) {
 //                            encoderInputBuffer.position(0);
