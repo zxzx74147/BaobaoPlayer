@@ -99,7 +99,7 @@ public class MediaMixer {
     }
 
     public void setOutputFile(File file) {
-       mEncoder.release();
+       mEncoder.setOutputFile(file);
     }
 
     private static class EncodeDecodeSurfaceWrapper implements Runnable {
