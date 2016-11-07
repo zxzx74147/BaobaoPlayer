@@ -17,9 +17,9 @@ import cn.myhug.baobaoplayer.util.TimeStampLogUtil;
 /**
  * Created by guoheng on 2016/8/31.
  */
-public class EncodeDecodeSurface {
+public class MediaMixer {
 
-    private static final String TAG = "EncodeDecodeSurface";
+    private static final String TAG = "MediaMixer";
     private static final boolean VERBOSE = false;           // lots of logging
 
     private Handler mHandler = null;
@@ -29,8 +29,8 @@ public class EncodeDecodeSurface {
 
     private int dealPercent = 0;
 
-    private SurfaceDecoder mDecoder = new SurfaceDecoder();
-    private SurfaceEncoder mEncoder = new SurfaceEncoder();
+    private MediaDecoder mDecoder = new MediaDecoder();
+    private MediaEncoder mEncoder = new MediaEncoder();
 
     public void setFilter(GPUImageFilter gpuImageFilter) {
         mDecoder.setFilter(gpuImageFilter);
@@ -46,7 +46,7 @@ public class EncodeDecodeSurface {
 
     private IBBMediaMuxterPrgressListener mListener = null;
 
-    public EncodeDecodeSurface() {
+    public MediaMixer() {
         mHandler = new Handler(Looper.getMainLooper(), new Handler.Callback() {
             @Override
             public boolean handleMessage(Message msg) {
@@ -86,9 +86,9 @@ public class EncodeDecodeSurface {
 
     private static class EncodeDecodeSurfaceWrapper implements Runnable {
         private Throwable mThrowable;
-        private EncodeDecodeSurface mTest;
+        private MediaMixer mTest;
 
-        private EncodeDecodeSurfaceWrapper(EncodeDecodeSurface test) {
+        private EncodeDecodeSurfaceWrapper(MediaMixer test) {
             mTest = test;
         }
 
@@ -105,7 +105,7 @@ public class EncodeDecodeSurface {
         /**
          * Entry point.
          */
-        public static void runTest(EncodeDecodeSurface obj) throws Throwable {
+        public static void runTest(MediaMixer obj) throws Throwable {
             EncodeDecodeSurfaceWrapper wrapper = new EncodeDecodeSurfaceWrapper(obj);
             Thread th = new Thread(wrapper, "codec test");
             th.start();

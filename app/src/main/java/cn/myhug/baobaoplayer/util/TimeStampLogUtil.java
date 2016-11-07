@@ -8,6 +8,7 @@ import android.util.SparseLongArray;
  */
 
 public class TimeStampLogUtil {
+    private static final boolean VERBOSE = false;
     private static final String TAG = "TIME_DURATION";
     private static long mTimeStamp = System.currentTimeMillis();
     private static SparseLongArray mTimeStamps = new SparseLongArray(10);
@@ -15,6 +16,9 @@ public class TimeStampLogUtil {
         logTimeStamp(0, log);
     }
     public static void logTimeStamp(int index,String log){
+        if(!VERBOSE){
+            return;
+        }
         long last = mTimeStamps.get(index);
         if(last == 0){
             last =System.currentTimeMillis();

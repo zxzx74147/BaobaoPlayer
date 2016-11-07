@@ -18,9 +18,9 @@ import static cn.myhug.baobaoplayer.media.Mp4Config.MIME_TYPE_AUDIO;
 /**
  * Created by guoheng on 2016/9/1.
  */
-public class SurfaceEncoder {
+public class MediaEncoder {
 
-    private static final String TAG = "EncodeDecodeSurface";
+    private static final String TAG = "MediaMixer";
     private static final boolean VERBOSE = true;           // lots of logging
     private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
     private static final int WIDTH = Mp4Config.VIDEO_WIDTH;

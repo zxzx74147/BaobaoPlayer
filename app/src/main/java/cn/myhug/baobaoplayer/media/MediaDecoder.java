@@ -15,9 +15,9 @@ import cn.myhug.baobaoplayer.filter.base.gpuimage.GPUImageFilter;
 /**
  * Created by guoheng on 2016/9/1.
  */
-public class SurfaceDecoder {
+public class MediaDecoder {
 
-    private static final String TAG = "EncodeDecodeSurface";
+    private static final String TAG = "MediaMixer";
     private static final boolean VERBOSE = false;           // lots of logging
 
     private int mDecodeWidth = Mp4Config.VIDEO_WIDTH;
@@ -145,6 +145,13 @@ public class SurfaceDecoder {
             mVideoDecoder.release();
             mVideoDecoder = null;
         }
+
+        if (mAudioDecoder != null) {
+            mAudioDecoder.stop();
+            mAudioDecoder.release();
+            mAudioDecoder = null;
+        }
+
         if (extractor != null) {
             extractor.release();
             extractor = null;

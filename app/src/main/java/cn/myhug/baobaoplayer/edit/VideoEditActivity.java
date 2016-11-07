@@ -32,7 +32,7 @@ import cn.myhug.baobaoplayer.filter.data.FilterData;
 import cn.myhug.baobaoplayer.filter.helper.MagicFilterFactory;
 import cn.myhug.baobaoplayer.filter.helper.MagicFilterType;
 import cn.myhug.baobaoplayer.filter.widget.FilterTypeHelper;
-import cn.myhug.baobaoplayer.media.EncodeDecodeSurface;
+import cn.myhug.baobaoplayer.media.MediaMixer;
 import cn.myhug.baobaoplayer.util.FileUtil;
 import cn.myhug.baobaoplayer.widget.recyclerview.CommonDataConverter;
 import cn.myhug.baobaoplayer.widget.recyclerview.CommonRecyclerViewAdapter;
@@ -174,7 +174,7 @@ public class VideoEditActivity extends BaseActivity {
 
     }
 
-    private EncodeDecodeSurface mMuxter = null;
+    private MediaMixer mMuxter = null;
     private void startMix(){
         final Uri uri = mIntentData.uri;
 
@@ -197,7 +197,7 @@ public class VideoEditActivity extends BaseActivity {
                 .cancelable(false)
                 .show();
 
-        mMuxter = new EncodeDecodeSurface();
+        mMuxter = new MediaMixer();
         mMuxter.setInputUri(uri);
         mMuxter.setFilter(MagicFilterFactory.initFilters(mLastFilter.mType));
         mMuxter.setListener(mEncodeListener);
@@ -210,7 +210,7 @@ public class VideoEditActivity extends BaseActivity {
 
     }
 
-    private EncodeDecodeSurface.IBBMediaMuxterPrgressListener mEncodeListener = new EncodeDecodeSurface.IBBMediaMuxterPrgressListener() {
+    private MediaMixer.IBBMediaMuxterPrgressListener mEncodeListener = new MediaMixer.IBBMediaMuxterPrgressListener() {
         @Override
         public void onProgress(int progress) {
             if(mProgressDialog!=null) {

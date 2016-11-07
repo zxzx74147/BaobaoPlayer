@@ -30,7 +30,7 @@ import cn.myhug.baobaoplayer.utils.TextureRotationUtil;
 public class CodecOutputSurface
         implements SurfaceTexture.OnFrameAvailableListener {
 
-    private static final String TAG = "EncodeDecodeSurface";
+    private static final String TAG = "MediaMixer";
     private static final boolean VERBOSE = false;           // lots of logging
 
     //    private STextureRender mTextureRender;
