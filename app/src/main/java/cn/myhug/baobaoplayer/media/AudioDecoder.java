@@ -5,8 +5,8 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.net.Uri;
 import android.util.Log;
-import android.view.Surface;
 
+import java.io.FileDescriptor;
 import java.io.IOException;
 
 import cn.myhug.baobaoplayer.PlayerApplication;
@@ -32,10 +32,14 @@ public class AudioDecoder {
     // where to find files (note: requires WRITE_EXTERNAL_STORAGE permission)
     private Uri uri;
 
+    private FileDescriptor fileDescriptor = null;
 
-    void SurfaceDecoderPrePare(Surface encodersurface) throws IOException {
+
+    void prepare() throws IOException {
         extractor = new MediaExtractor();
-        if (uri != null) {
+        if(fileDescriptor!=null){
+            extractor.setDataSource(fileDescriptor);
+        }else if (uri != null) {
             extractor.setDataSource(PlayerApplication.sharedInstance(), uri, null);
         } else {
             throw new RuntimeException("No video uri found ");
@@ -95,6 +99,9 @@ public class AudioDecoder {
 
     public void setUri(Uri uri) {
         this.uri = uri;
+    }
+    public void setFileDescriptor(FileDescriptor descriptor) {
+        this.fileDescriptor = descriptor;
     }
 
 }

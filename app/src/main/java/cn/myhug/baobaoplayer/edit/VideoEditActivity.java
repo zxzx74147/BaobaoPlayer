@@ -58,7 +58,7 @@ public class VideoEditActivity extends BaseActivity {
                 mBinding.videoView.start();
                 initFilter();
                 initSeekBar();
-//                addBgm();
+                addBgm();
             }
         }, 300);
 
@@ -177,8 +177,7 @@ public class VideoEditActivity extends BaseActivity {
     private MediaMixer mMuxter = null;
     private void startMix(){
         final Uri uri = mIntentData.uri;
-
-        File file = FileUtil.getFile("baobao/out.mp4");
+        File file = FileUtil.getFile("output.mp4");
         if(file.exists()){
             file.delete();
         }
@@ -194,11 +193,13 @@ public class VideoEditActivity extends BaseActivity {
                 .content("请稍等")
                 .progress(false, 100, true)
                 .canceledOnTouchOutside(false)
-                .cancelable(false)
+//                .cancelable(false)
                 .show();
 
         mMuxter = new MediaMixer();
         mMuxter.setInputUri(uri);
+        mMuxter.setOutputFile(file);
+        mMuxter.setMixAudio(Uri.fromFile(FileUtil.getFile("Twinkle.mp3")));
         mMuxter.setFilter(MagicFilterFactory.initFilters(mLastFilter.mType));
         mMuxter.setListener(mEncodeListener);
 

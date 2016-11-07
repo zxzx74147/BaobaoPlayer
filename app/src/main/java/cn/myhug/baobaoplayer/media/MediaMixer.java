@@ -8,6 +8,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -31,10 +33,14 @@ public class MediaMixer {
 
     private MediaDecoder mDecoder = new MediaDecoder();
     private MediaEncoder mEncoder = new MediaEncoder();
+    private AudioDecoder mAudioDecoder = new AudioDecoder();
+    private ByteBuffer mMixAudioBuffer = ByteBuffer.allocate(1024*128);
 
     public void setFilter(GPUImageFilter gpuImageFilter) {
         mDecoder.setFilter(gpuImageFilter);
     }
+
+
 
     public interface IBBMediaMuxterPrgressListener {
         void onProgress(int progress);
@@ -80,8 +86,20 @@ public class MediaMixer {
         EncodeDecodeSurfaceWrapper.runTest(this);
     }
 
+    public void setMixAudio(Uri uri){
+        mAudioDecoder.setUri(uri);
+    }
+
+    public void setMixFileDescriptor(FileDescriptor descriptor){
+        mAudioDecoder.setFileDescriptor(descriptor);
+    }
+
     public void setInputUri(Uri uri) {
         mDecoder.setUri(uri);
+    }
+
+    public void setOutputFile(File file) {
+       mEncoder.release();
     }
 
     private static class EncodeDecodeSurfaceWrapper implements Runnable {
@@ -121,6 +139,7 @@ public class MediaMixer {
 
             mEncoder.VideoEncodePrepare();
             mDecoder.SurfaceDecoderPrePare(mEncoder.getEncoderSurface());
+            mAudioDecoder.prepare();
             doExtract();
         } catch (Exception e) {
             e.printStackTrace();

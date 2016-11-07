@@ -7,10 +7,10 @@ import android.media.MediaMuxer;
 import android.util.Log;
 import android.view.Surface;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-import cn.myhug.baobaoplayer.util.FileUtil;
 import cn.myhug.baobaoplayer.util.TimeStampLogUtil;
 
 import static cn.myhug.baobaoplayer.media.Mp4Config.MIME_TYPE_AUDIO;
@@ -39,11 +39,12 @@ public class MediaEncoder {
     public int mVideoTrackIndex = -1;
     public int mAudioTrackIndex = -1;
     public boolean mMuxerStarted;
+    private File mOutputFile = null;
 
 
     public void VideoEncodePrepare() {
 
-        String outputPath = FileUtil.getFile("output.mp4").toString();
+//        String outputPath = FileUtil.getFile("output.mp4").toString();
 
         mBufferInfo = new MediaCodec.BufferInfo();
 
@@ -61,7 +62,7 @@ public class MediaEncoder {
             mVideoEncoder = null;
 
             try {
-                mMuxer = new MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                mMuxer = new MediaMuxer(mOutputFile.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
                 mVideoEncoder = MediaCodec.createEncoderByType(MIME_TYPE);
 
                 mVideoEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
@@ -103,6 +104,10 @@ public class MediaEncoder {
 //        mMuxer.start();
         mMuxerStarted = false;
 
+    }
+
+    public void setOutputFile(File file){
+         mOutputFile = file;
     }
 
 
