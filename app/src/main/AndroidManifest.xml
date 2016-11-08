@@ -34,7 +34,7 @@
         </activity>
         <activity android:name=".PlayerActivity" />
         <activity android:name=".PlayerVideoActivity" />
-        <activity android:name=".preview.PreviewActivty" />
+        <activity android:name=".record.RecordActivty" />
         <activity android:name=".edit.VideoEditActivity"/>
     </application>
 

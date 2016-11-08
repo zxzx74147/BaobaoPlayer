@@ -138,7 +138,7 @@ public class MediaMixer {
     private void prepare() throws IOException {
         try {
 
-            mEncoder.VideoEncodePrepare();
+            mEncoder.prepare();
             mDecoder.SurfaceDecoderPrePare(mEncoder.getEncoderSurface());
             mAudioDecoder.prepare();
             doExtract();

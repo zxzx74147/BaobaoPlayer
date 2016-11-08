@@ -7,6 +7,7 @@ import java.nio.FloatBuffer;
 
 import cn.myhug.baobaoplayer.R;
 import cn.myhug.baobaoplayer.filter.base.gpuimage.GPUImageFilter;
+import cn.myhug.baobaoplayer.gles.GlUtil;
 import cn.myhug.baobaoplayer.utils.MagicParams;
 import cn.myhug.baobaoplayer.utils.OpenGlUtils;
 
@@ -22,6 +23,8 @@ public class MagicCameraInputFilter extends GPUImageFilter {
     private int[] mFrameBufferTextures = null;
     private int mFrameWidth = -1;
     private int mFrameHeight = -1;
+    protected int mOutputWidth;
+    protected int mOutputHeight;
 
     public MagicCameraInputFilter(){
         super(OpenGlUtils.readShaderFromRawResource(R.raw.default_vertex) ,
@@ -34,6 +37,7 @@ public class MagicCameraInputFilter extends GPUImageFilter {
         mSingleStepOffsetLocation = GLES20.glGetUniformLocation(getProgram(), "singleStepOffset");
         mParamsLocation = GLES20.glGetUniformLocation(getProgram(), "params");
         setBeautyLevel(MagicParams.beautyLevel);
+
     }
 
     public void setTextureTransformMatrix(float[] mtx){
@@ -101,8 +105,11 @@ public class MagicCameraInputFilter extends GPUImageFilter {
             return OpenGlUtils.NO_TEXTURE;
         runPendingOnDrawTasks();
         GLES20.glViewport(0, 0, mFrameWidth, mFrameHeight);
+        GlUtil.checkGlError("glViewport");
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFrameBuffers[0]);
+        GlUtil.checkGlError("glBindFramebuffer");
         GLES20.glUseProgram(mGLProgId);
+        GlUtil.checkGlError("glUseProgram");
         if(!isInitialized()) {
             return OpenGlUtils.NOT_INIT;
         }
@@ -118,6 +125,7 @@ public class MagicCameraInputFilter extends GPUImageFilter {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId);
             GLES20.glUniform1i(mGLUniformTexture, 0);
+            GlUtil.checkGlError("glUniform1i");
         }
 
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
@@ -212,6 +220,12 @@ public class MagicCameraInputFilter extends GPUImageFilter {
         super.onDestroy();
         destroyFramebuffers();
     }
+
+    public void onOutputSizeChanged(final int width, final int height) {
+        mOutputWidth = width;
+        mOutputHeight = height;
+    }
+
 
     public void onBeautyLevelChanged(){
         setBeautyLevel(MagicParams.beautyLevel);

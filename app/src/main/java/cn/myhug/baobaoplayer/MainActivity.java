@@ -10,6 +10,7 @@ import android.widget.TextView;
 import cn.myhug.baobaoplayer.data.IntentData;
 import cn.myhug.baobaoplayer.databinding.ActivityMainBinding;
 import cn.myhug.baobaoplayer.edit.VideoEditActivity;
+import cn.myhug.baobaoplayer.record.RecordActivty;
 import cn.myhug.baobaoplayer.util.FileSelectUtil;
 import cn.myhug.baobaoplayer.util.ZXActivityJumpHelper;
 
@@ -29,7 +30,7 @@ public class MainActivity extends BaseActivity {
         mBinding.start.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Intent intent = new Intent(MainActivity.this, PlayerActivity.class);
+                Intent intent = new Intent(MainActivity.this, RecordActivty.class);
                 startActivity(intent);
             }
         });

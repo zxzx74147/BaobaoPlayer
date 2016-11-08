@@ -69,7 +69,7 @@ public class AudioDecoder {
 
     }
 
-    public boolean hasSource(){
+    public boolean hasSource() {
         return extractor != null;
     }
 
@@ -124,12 +124,13 @@ public class AudioDecoder {
 
     public int pumpAudioBuffer(int len) {
         int sum = 0;
-
+        int loopCount = 0;
         while (sum < len) {
+
             int dstLen = len - sum;
             if (mLeftLen >= dstLen) {
                 System.arraycopy(mMixAudioBuffer, 0, mResult, sum, dstLen);
-                mLeftLen  -= dstLen;
+                mLeftLen -= dstLen;
                 System.arraycopy(mMixAudioBuffer, dstLen, mMixAudioBuffer, 0, mLeftLen);
                 sum += dstLen;
                 continue;
@@ -155,11 +156,11 @@ public class AudioDecoder {
                 if (!extractor.advance()) {
                     extractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                 }
-            }else{
+            } else {
                 release();
                 try {
                     prepare();
-                }catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -184,6 +185,11 @@ public class AudioDecoder {
                 decodeBuffer.get(mMixAudioBuffer, mLeftLen, latest.size);
                 mLeftLen += latest.size;
                 mAudioDecoder.releaseOutputBuffer(outputIndex, false);
+            }
+            loopCount++;
+            if (loopCount > 16) {
+                extractor = null;
+                break;
             }
         }
         return sum;

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <data>
+
+        <variable
+            name="handlers"
+            type="cn.myhug.baobaoplayer.record.RecordActivty" />
+    </data>
+
+    <LinearLayout
+        android:id="@+id/activity_preview_activty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/black"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/default_gap_50">
+
+            <ImageButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/ic_menu_close_clear_cancel" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <ImageButton
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@android:drawable/arrow_down_float" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dip"
+            android:layout_weight="1">
+
+            <android.opengl.GLSurfaceView
+                android:id="@+id/camera_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_below="@+id/title" />
+        </LinearLayout>
+
+        <RelativeLayout
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+
+            android:layout_height="wrap_content">
+
+            <ImageButton
+                android:id="@+id/select_file"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:layout_marginRight="@dimen/default_gap_90"
+                android:layout_toLeftOf="@+id/record"
+                android:background="@null"
+                android:onClick="@{handlers.onSelectFile}"
+                android:src="@drawable/icon_xiaosp_photo_delete_n" />
+
+            <ImageButton
+                android:id="@+id/record"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:layout_marginBottom="@dimen/default_gap_40"
+                android:layout_marginTop="@dimen/default_gap_40"
+                android:background="@null"
+                android:src="@drawable/record_record" />
+
+            <ImageButton
+                android:id="@+id/swap_camera"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="@dimen/default_gap_90"
+                android:onClick="@{handlers.onSwapCamera}"
+                android:layout_toRightOf="@+id/record"
+                android:background="@null"
+                android:src="@drawable/icon_xiaosp_photo_evert" />
+        </RelativeLayout>
+
+
+    </LinearLayout>
+</layout>

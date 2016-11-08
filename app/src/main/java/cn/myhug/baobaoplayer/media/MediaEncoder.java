@@ -28,10 +28,11 @@ public class MediaEncoder {
     private static final int BIT_RATE = Mp4Config.VIDEO_BITRATE;            // 2Mbps
     public static final int FRAME_RATE = Mp4Config.VIDEO_FRAME_RATE;               // 30fps
     private static final int IFRAME_INTERVAL = Mp4Config.VIDEO_I_FRAME_INTERVAL;          // 10 seconds between I-frames
+    public static  final int TIMEOUT_USEC = 10000;
 
     MediaCodec mVideoEncoder = null;
     MediaCodec mAudioEncoder = null;
-    Surface encodesurface;
+    Surface mEncodesurface;
 
     private MediaCodec.BufferInfo mBufferInfo;
     public MediaMuxer mMuxer;
@@ -42,7 +43,7 @@ public class MediaEncoder {
     private File mOutputFile = null;
 
 
-    public void VideoEncodePrepare() {
+    public void prepare() {
 
 //        String outputPath = FileUtil.getFile("output.mp4").toString();
 
@@ -66,7 +67,7 @@ public class MediaEncoder {
                 mVideoEncoder = MediaCodec.createEncoderByType(MIME_TYPE);
 
                 mVideoEncoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-                encodesurface = mVideoEncoder.createInputSurface();
+                mEncodesurface = mVideoEncoder.createInputSurface();
                 mVideoEncoder.start();
 
 
@@ -112,7 +113,7 @@ public class MediaEncoder {
 
 
     public void drainAudioEncoder(boolean endOfStream, ByteBuffer inputBuffer, MediaCodec.BufferInfo info) {
-        final int TIMEOUT_USEC = 10000;
+
         if (VERBOSE) Log.d(TAG, "drainAudioEncoder(" + endOfStream + ")");
 
         TimeStampLogUtil.logTimeStamp(1,"drainAudioEncoder start====");
@@ -335,8 +336,8 @@ public class MediaEncoder {
     }
 
 
-    Surface getEncoderSurface() {
-        return encodesurface;
+    public Surface getEncoderSurface() {
+        return mEncodesurface;
     }
 
 }
