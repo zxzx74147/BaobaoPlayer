@@ -49,7 +49,8 @@ public class AudioDecoder {
         } else if (uri != null) {
             extractor.setDataSource(PlayerApplication.sharedInstance(), uri, null);
         } else {
-            throw new RuntimeException("No video uri found ");
+            extractor = null;
+            return;
         }
 
         //Audio
@@ -66,6 +67,10 @@ public class AudioDecoder {
         mAudioDecoder.configure(audioFormat, null, null, 0);
         mAudioDecoder.start();
 
+    }
+
+    public boolean hasSource(){
+        return extractor != null;
     }
 
     public long getDuration() {

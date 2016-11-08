@@ -43,7 +43,6 @@ public class MediaMixer {
     }
 
 
-
     public interface IBBMediaMuxterPrgressListener {
         void onProgress(int progress);
 
@@ -85,7 +84,7 @@ public class MediaMixer {
      * test entry point
      */
     public void startMix() throws Throwable {
-        EncodeDecodeSurfaceWrapper.runTest(this);
+        MediaMixWapper.startMix(this);
     }
 
     public void setMixAudio(Uri uri){
@@ -104,18 +103,18 @@ public class MediaMixer {
        mEncoder.setOutputFile(file);
     }
 
-    private static class EncodeDecodeSurfaceWrapper implements Runnable {
+    private static class MediaMixWapper implements Runnable {
         private Throwable mThrowable;
         private MediaMixer mTest;
 
-        private EncodeDecodeSurfaceWrapper(MediaMixer test) {
+        private MediaMixWapper(MediaMixer test) {
             mTest = test;
         }
 
         @Override
         public void run() {
             try {
-                mTest.Prepare();
+                mTest.prepare();
             } catch (Throwable th) {
                 mThrowable = th;
                 th.printStackTrace();
@@ -125,8 +124,8 @@ public class MediaMixer {
         /**
          * Entry point.
          */
-        public static void runTest(MediaMixer obj) throws Throwable {
-            EncodeDecodeSurfaceWrapper wrapper = new EncodeDecodeSurfaceWrapper(obj);
+        public static void startMix(MediaMixer obj) throws Throwable {
+            MediaMixWapper wrapper = new MediaMixWapper(obj);
             Thread th = new Thread(wrapper, "codec test");
             th.start();
             //th.join();
@@ -136,7 +135,7 @@ public class MediaMixer {
         }
     }
 
-    private void Prepare() throws IOException {
+    private void prepare() throws IOException {
         try {
 
             mEncoder.VideoEncodePrepare();
@@ -315,22 +314,24 @@ public class MediaMixer {
                         if (VERBOSE) Log.d(TAG, "output EOS");
                         mAudioOutputDone = true;
                     }
+                    if(mAudioDecoder.hasSource()) {
+                        int length = mAudioDecoder.pumpAudioBuffer(info.size);
+                        if (VERBOSE)
+                            Log.d(TAG, String.format("decode mix audio len=%d,time=%d,audio len = %d time=%d ",
+                                    length, mAudioDecoder.latest.presentationTimeUs,
+                                    info.size, info.presentationTimeUs));
 
-                    int length = mAudioDecoder.pumpAudioBuffer(info.size);
-                    if (VERBOSE)
-                        Log.d(TAG, String.format("decode mix audio len=%d,time=%d,audio len = %d time=%d ",
-                                length,mAudioDecoder.latest.presentationTimeUs,
-                                info.size,info.presentationTimeUs));
 
-
-                    mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes,0,info.size);
-                    AudioUtil.mixVoice(mAudioBytes,mAudioDecoder.getResult(),info.size);
-                    mAudioByteBuffer.position(0);
-                    info.offset = 0;
-                    mAudioByteBuffer.put(mAudioBytes,0,info.size);
-//                    mAudioByteBuffer.put(mAudioDecoder.getResult(),0,info.size);
-                    mAudioByteBuffer.flip();
-                    mEncoder.drainAudioEncoder(false, mAudioByteBuffer, info);
+                        mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes, 0, info.size);
+                        AudioUtil.mixVoice(mAudioBytes, mAudioDecoder.getResult(), info.size);
+                        mAudioByteBuffer.position(0);
+                        info.offset = 0;
+                        mAudioByteBuffer.put(mAudioBytes, 0, info.size);
+                        mAudioByteBuffer.flip();
+                        mEncoder.drainAudioEncoder(false, mAudioByteBuffer, info);
+                    }else{
+                        mEncoder.drainAudioEncoder(false, mAudioDecoderOutputBuffers[decoderStatus], info);
+                    }
                     TimeStampLogUtil.logTimeStamp("encoder drainAudioEncoder====");
                     mDecoder.mAudioDecoder.releaseOutputBuffer(decoderStatus, false);
                 }
