@@ -24,7 +24,6 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.LinkedList;
 
-import cn.myhug.baobaoplayer.gles.GlUtil;
 import cn.myhug.baobaoplayer.utils.OpenGlUtils;
 import cn.myhug.baobaoplayer.utils.Rotation;
 import cn.myhug.baobaoplayer.utils.TextureRotationUtil;
@@ -123,7 +122,7 @@ public class GPUImageFilter {
     public int onDrawFrame(final int textureId, final FloatBuffer cubeBuffer,
                        final FloatBuffer textureBuffer) {
         GLES20.glUseProgram(mGLProgId);
-        GlUtil.checkGlError("glUseProgram:"+mGLProgId+getClass().getName());
+//        GlUtil.checkGlError("glUseProgram:"+mGLProgId+getClass().getName());
         runPendingOnDrawTasks();
         if (!mIsInitialized) {
             return OpenGlUtils.NOT_INIT;
@@ -167,8 +166,8 @@ public class GPUImageFilter {
 		if (textureId != OpenGlUtils.NO_TEXTURE) {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId);
-            GlUtil.checkGlError("glBindTexture"+textureId);
-            GlUtil.checkGlError("glUniform1i");
+//            GlUtil.checkGlError("glBindTexture"+textureId);
+//            GlUtil.checkGlError("glUniform1i");
 		}
 		onDrawArraysPre();
 		GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);

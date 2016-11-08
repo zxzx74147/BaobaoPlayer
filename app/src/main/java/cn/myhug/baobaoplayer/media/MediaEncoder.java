@@ -21,7 +21,7 @@ import static cn.myhug.baobaoplayer.media.Mp4Config.MIME_TYPE_AUDIO;
 public class MediaEncoder {
 
     private static final String TAG = "MediaMixer";
-    private static final boolean VERBOSE = true;           // lots of logging
+    private static final boolean VERBOSE = false;           // lots of logging
     private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
     private static final int WIDTH = Mp4Config.VIDEO_WIDTH;
     private static final int HEIGHT = Mp4Config.VIDEO_HEIGHT;
@@ -128,6 +128,7 @@ public class MediaEncoder {
                 ByteBuffer buffer = mAudioEncoder.getInputBuffers()[inputIndex];
                 buffer.position(0);
                 buffer.put(inputBuffer);
+                buffer.flip();
                 mAudioEncoder.queueInputBuffer(inputIndex, 0, info.size, info.presentationTimeUs, 0);
             }
         } else {

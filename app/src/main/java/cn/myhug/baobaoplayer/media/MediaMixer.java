@@ -34,7 +34,9 @@ public class MediaMixer {
     private MediaDecoder mDecoder = new MediaDecoder();
     private MediaEncoder mEncoder = new MediaEncoder();
     private AudioDecoder mAudioDecoder = new AudioDecoder();
-    private ByteBuffer mMixAudioBuffer = ByteBuffer.allocate(1024*128);
+    private byte[] mAudioBytes = new byte[AudioDecoder.BUFFER_LEN];
+    private ByteBuffer mAudioByteBuffer = ByteBuffer.allocate(AudioDecoder.BUFFER_LEN);
+
 
     public void setFilter(GPUImageFilter gpuImageFilter) {
         mDecoder.setFilter(gpuImageFilter);
@@ -149,6 +151,7 @@ public class MediaMixer {
         } finally {
             mDecoder.release();
             mEncoder.release();
+            mAudioDecoder.release();
         }
     }
 
@@ -312,7 +315,22 @@ public class MediaMixer {
                         if (VERBOSE) Log.d(TAG, "output EOS");
                         mAudioOutputDone = true;
                     }
-                    mEncoder.drainAudioEncoder(false, mAudioDecoderOutputBuffers[decoderStatus], info);
+
+                    int length = mAudioDecoder.pumpAudioBuffer(info.size);
+                    if (VERBOSE)
+                        Log.d(TAG, String.format("decode mix audio len=%d,time=%d,audio len = %d time=%d ",
+                                length,mAudioDecoder.latest.presentationTimeUs,
+                                info.size,info.presentationTimeUs));
+
+
+                    mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes,0,info.size);
+                    AudioUtil.mixVoice(mAudioBytes,mAudioDecoder.getResult(),info.size);
+                    mAudioByteBuffer.position(0);
+                    info.offset = 0;
+                    mAudioByteBuffer.put(mAudioBytes,0,info.size);
+//                    mAudioByteBuffer.put(mAudioDecoder.getResult(),0,info.size);
+                    mAudioByteBuffer.flip();
+                    mEncoder.drainAudioEncoder(false, mAudioByteBuffer, info);
                     TimeStampLogUtil.logTimeStamp("encoder drainAudioEncoder====");
                     mDecoder.mAudioDecoder.releaseOutputBuffer(decoderStatus, false);
                 }
@@ -333,6 +351,7 @@ public class MediaMixer {
         final long ONE_BILLION = 1000000000;
         return frameIndex * ONE_BILLION / 30;
     }
+
 
 
 }
