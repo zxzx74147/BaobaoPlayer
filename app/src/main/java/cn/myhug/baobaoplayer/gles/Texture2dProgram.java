@@ -21,65 +21,71 @@ import android.opengl.GLES20;
 import android.util.Log;
 
 import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+import java.util.LinkedList;
 
-import cn.myhug.baobaoplayer.PlayerApplication;
-import cn.myhug.baobaoplayer.R;
 import cn.myhug.baobaoplayer.util.ShaderUtil;
-import cn.myhug.baobaoplayer.util.TextureUtil;
 
 /**
  * GL program and supporting functions for textured 2D shapes.
  */
 public class Texture2dProgram {
     private static final String TAG = GlUtil.TAG;
+    private int mInputWidth = 480, mInputHeight = 368;
+
+    public void setInputWH(int mCameraPreviewWidth, int mCameraPreviewHeight) {
+        mInputWidth = mCameraPreviewWidth;
+        mInputHeight = mCameraPreviewHeight;
+        setFloatVec2(mSingleStepOffsetLocation, new float[]{2.0f / mInputWidth, 2.0f / mInputHeight});
+    }
 
     public enum ProgramType {
-        TEXTURE_2D, TEXTURE_EXT, TEXTURE_EXT_BW, TEXTURE_EXT_FILT,TEXTURE_EXT_FILTER
+        TEXTURE_2D, TEXTURE_EXT, TEXTURE_EXT_BW, TEXTURE_EXT_FILT, TEXTURE_EXT_MAGIC_2
     }
 
     // Simple vertex shader, used for all programs.
     private static final String VERTEX_SHADER =
             "uniform mat4 uMVPMatrix;\n" +
-            "uniform mat4 uTexMatrix;\n" +
-            "attribute vec4 aPosition;\n" +
-            "attribute vec4 aTextureCoord;\n" +
-            "varying vec2 vTextureCoord;\n" +
-            "void main() {\n" +
-            "    gl_Position = uMVPMatrix * aPosition;\n" +
-            "    vTextureCoord = (uTexMatrix * aTextureCoord).xy;\n" +
-            "}\n";
+                    "uniform mat4 uTexMatrix;\n" +
+                    "attribute vec4 aPosition;\n" +
+                    "attribute vec4 aTextureCoord;\n" +
+                    "varying vec2 vTextureCoord;\n" +
+                    "void main() {\n" +
+                    "    gl_Position = uMVPMatrix * aPosition;\n" +
+                    "    vTextureCoord = (uTexMatrix * aTextureCoord).xy;\n" +
+                    "}\n";
 
     // Simple fragment shader for use with "normal" 2D textures.
     private static final String FRAGMENT_SHADER_2D =
             "precision mediump float;\n" +
-            "varying vec2 vTextureCoord;\n" +
-            "uniform sampler2D sTexture;\n" +
-            "void main() {\n" +
-            "    gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
-            "}\n";
+                    "varying vec2 vTextureCoord;\n" +
+                    "uniform sampler2D sTexture;\n" +
+                    "void main() {\n" +
+                    "    gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
+                    "}\n";
 
     // Simple fragment shader for use with external 2D textures (e.g. what we get from
     // SurfaceTexture).
     private static final String FRAGMENT_SHADER_EXT =
             "#extension GL_OES_EGL_image_external : require\n" +
-            "precision mediump float;\n" +
-            "varying vec2 vTextureCoord;\n" +
-            "uniform samplerExternalOES sTexture;\n" +
-            "void main() {\n" +
-            "    gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
-            "}\n";
+                    "precision mediump float;\n" +
+                    "varying vec2 vTextureCoord;\n" +
+                    "uniform samplerExternalOES sTexture;\n" +
+                    "void main() {\n" +
+                    "    gl_FragColor = texture2D(sTexture, vTextureCoord);\n" +
+                    "}\n";
 
     // Fragment shader that converts color to black & white with a simple transformation.
     private static final String FRAGMENT_SHADER_EXT_BW =
             "#extension GL_OES_EGL_image_external : require\n" +
-            "precision mediump float;\n" +
-            "varying vec2 vTextureCoord;\n" +
-            "uniform samplerExternalOES sTexture;\n" +
-            "void main() {\n" +
-            "    vec4 tc = texture2D(sTexture, vTextureCoord);\n" +
-            "    float color = tc.r * 0.3 + tc.g * 0.59 + tc.b * 0.11;\n" +
-            "    gl_FragColor = vec4(color, color, color, 1.0);\n" +
-            "}\n";
+                    "precision mediump float;\n" +
+                    "varying vec2 vTextureCoord;\n" +
+                    "uniform samplerExternalOES sTexture;\n" +
+                    "void main() {\n" +
+                    "    vec4 tc = texture2D(sTexture, vTextureCoord);\n" +
+                    "    float color = tc.r * 0.3 + tc.g * 0.59 + tc.b * 0.11;\n" +
+                    "    gl_FragColor = vec4(color, color, color, 1.0);\n" +
+                    "}\n";
 
     // Fragment shader with a convolution filter.  The upper-left half will be drawn normally,
     // the lower-right half will have the filter applied, and a thin red line will be drawn
@@ -94,29 +100,29 @@ public class Texture2dProgram {
     public static final int KERNEL_SIZE = 9;
     private static final String FRAGMENT_SHADER_EXT_FILT =
             "#extension GL_OES_EGL_image_external : require\n" +
-            "#define KERNEL_SIZE " + KERNEL_SIZE + "\n" +
-            "precision highp float;\n" +
-            "varying vec2 vTextureCoord;\n" +
-            "uniform samplerExternalOES sTexture;\n" +
-            "uniform float uKernel[KERNEL_SIZE];\n" +
-            "uniform vec2 uTexOffset[KERNEL_SIZE];\n" +
-            "uniform float uColorAdjust;\n" +
-            "void main() {\n" +
-            "    int i = 0;\n" +
-            "    vec4 sum = vec4(0.0);\n" +
-            "    if (vTextureCoord.x < vTextureCoord.y - 0.005) {\n" +
-            "        for (i = 0; i < KERNEL_SIZE; i++) {\n" +
-            "            vec4 texc = texture2D(sTexture, vTextureCoord + uTexOffset[i]);\n" +
-            "            sum += texc * uKernel[i];\n" +
-            "        }\n" +
-            "    sum += uColorAdjust;\n" +
-            "    } else if (vTextureCoord.x > vTextureCoord.y + 0.005) {\n" +
-            "        sum = texture2D(sTexture, vTextureCoord);\n" +
-            "    } else {\n" +
-            "        sum.r = 1.0;\n" +
-            "    }\n" +
-            "    gl_FragColor = sum;\n" +
-            "}\n";
+                    "#define KERNEL_SIZE " + KERNEL_SIZE + "\n" +
+                    "precision highp float;\n" +
+                    "varying vec2 vTextureCoord;\n" +
+                    "uniform samplerExternalOES sTexture;\n" +
+                    "uniform float uKernel[KERNEL_SIZE];\n" +
+                    "uniform vec2 uTexOffset[KERNEL_SIZE];\n" +
+                    "uniform float uColorAdjust;\n" +
+                    "void main() {\n" +
+                    "    int i = 0;\n" +
+                    "    vec4 sum = vec4(0.0);\n" +
+                    "    if (vTextureCoord.x < vTextureCoord.y - 0.005) {\n" +
+                    "        for (i = 0; i < KERNEL_SIZE; i++) {\n" +
+                    "            vec4 texc = texture2D(sTexture, vTextureCoord + uTexOffset[i]);\n" +
+                    "            sum += texc * uKernel[i];\n" +
+                    "        }\n" +
+                    "    sum += uColorAdjust;\n" +
+                    "    } else if (vTextureCoord.x > vTextureCoord.y + 0.005) {\n" +
+                    "        sum = texture2D(sTexture, vTextureCoord);\n" +
+                    "    } else {\n" +
+                    "        sum.r = 1.0;\n" +
+                    "    }\n" +
+                    "    gl_FragColor = sum;\n" +
+                    "}\n";
 
     private ProgramType mProgramType;
 
@@ -131,19 +137,23 @@ public class Texture2dProgram {
     private int maTextureCoordLoc;
 
     private int mTextureTarget;
-    private int mTexture2Target = -1;
 
     private float[] mKernel = new float[KERNEL_SIZE];
     private float[] mTexOffset;
     private float mColorAdjust;
-   private int mTextureId;
+    private int mParamsLocation = -1;
+    private int mSingleStepOffsetLocation = -1;
+    private int mParamsLocation2 = -1;
+    private int mPowerLevelId = -1;
+    private int mPowerLevel = 0;
+
 
     /**
      * Prepares the program in the current EGL context.
      */
     public Texture2dProgram(ProgramType programType) {
         mProgramType = programType;
-
+        mRunOnDraw = new LinkedList<>();
         switch (programType) {
             case TEXTURE_2D:
                 mTextureTarget = GLES20.GL_TEXTURE_2D;
@@ -161,11 +171,20 @@ public class Texture2dProgram {
                 mTextureTarget = GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
                 mProgramHandle = GlUtil.createProgram(VERTEX_SHADER, FRAGMENT_SHADER_EXT_FILT);
                 break;
-            case TEXTURE_EXT_FILTER:
-                mTextureTarget = GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
-                mProgramHandle = GlUtil.createProgram(ShaderUtil.getStringFromAssert("shader/common_vertex_shader.glsl"), ShaderUtil.getStringFromAssert("shader/common_fragment_shader.glsl"));
-//                mProgramHandle = GlUtil.createProgram(ShaderUtil.getStringFromAssert("shader/common_vertex_shader.glsl"), ShaderUtil.getStringFromAssert("shader/test1.glsl"));
 
+            case TEXTURE_EXT_MAGIC_2:
+                mTextureTarget = GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
+                mProgramHandle = GlUtil.createProgram(ShaderUtil.getStringFromAssert("shader/default_vertex_2.glsl"), ShaderUtil.getStringFromAssert("shader/beautify_fragment_adaptive.glsl"));
+
+
+                mParamsLocation2 = GLES20.glGetUniformLocation(mProgramHandle, "params");
+                GlUtil.checkLocation(mParamsLocation2, "params");
+                mSingleStepOffsetLocation = GLES20.glGetUniformLocation(mProgramHandle, "singleStepOffset");
+                GlUtil.checkLocation(mSingleStepOffsetLocation, "singleStepOffset");
+                mPowerLevelId = GLES20.glGetUniformLocation(mProgramHandle, "level");
+//                GlUtil.checkLocation(mPowerLevelId, "level");
+//                mPowerLevel = 1;
+                setBeautyLevel(0);
                 break;
             default:
                 throw new RuntimeException("Unhandled type " + programType);
@@ -186,15 +205,6 @@ public class Texture2dProgram {
         muTexMatrixLoc = GLES20.glGetUniformLocation(mProgramHandle, "uTexMatrix");
         GlUtil.checkLocation(muTexMatrixLoc, "uTexMatrix");
         muKernelLoc = GLES20.glGetUniformLocation(mProgramHandle, "uKernel");
-
-        mTexture2Target = GLES20.glGetUniformLocation(mProgramHandle, "inputImageTexture2");
-        if(mTexture2Target>=0){
-            mTextureId = TextureUtil.loadTexture(PlayerApplication.sharedInstance(), R.drawable.coral_0818);
-            GLES20.glUseProgram(mProgramHandle);
-            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
-            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureId);
-            GLES20.glUniform1i(mTexture2Target, 1);
-        }
         if (muKernelLoc < 0) {
             // no kernel in this one
             muKernelLoc = -1;
@@ -208,9 +218,152 @@ public class Texture2dProgram {
             GlUtil.checkLocation(muColorAdjustLoc, "uColorAdjust");
 
             // initialize default values
-            setKernel(new float[] {0f, 0f, 0f,  0f, 1f, 0f,  0f, 0f, 0f}, 0f);
+            setKernel(new float[]{0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f}, 0f);
             setTexSize(256, 256);
         }
+    }
+
+    protected void setFloatVec4(final int location, final float[] arrayValue) {
+        runOnDraw(new Runnable() {
+            @Override
+            public void run() {
+                if (location < 0) {
+                    return;
+                }
+                GLES20.glUniform4fv(location, 1, FloatBuffer.wrap(arrayValue));
+                GlUtil.checkGlError("glUniform4fv");
+            }
+        });
+    }
+
+//    protected void setInt(final int location, final int level) {
+//        runOnDraw(new Runnable() {
+//            @Override
+//            public void run() {
+//                if (location < 0) {
+//                    return;
+//                }
+//                GLES20.glUniform1i(location, level);
+//                GlUtil.checkGlError("glUniform1i");
+//            }
+//        });
+//    }
+
+    protected void setIntVec2(final int location, final int[] arrayValue) {
+        runOnDraw(new Runnable() {
+            @Override
+            public void run() {
+                if (location < 0) {
+                    return;
+                }
+                GLES20.glUniform2iv(location, 1, IntBuffer.wrap(arrayValue));
+                GlUtil.checkGlError("glUniform2iv");
+            }
+        });
+    }
+
+    protected void setFloatVec2(final int location, final float[] arrayValue) {
+        runOnDraw(new Runnable() {
+            @Override
+            public void run() {
+                if (location < 0) {
+                    return;
+                }
+                GLES20.glUniform2fv(location, 1, FloatBuffer.wrap(arrayValue));
+                GlUtil.checkGlError("glUniform2fv");
+            }
+        });
+    }
+
+    protected void setFloat(final int location, final float floatValue) {
+        runOnDraw(new Runnable() {
+            @Override
+            public void run() {
+                if (location < 0) {
+                    return;
+                }
+                GLES20.glUniform1f(location, floatValue);
+                GlUtil.checkGlError("glUniform1f");
+            }
+        });
+    }
+
+    private final LinkedList<Runnable> mRunOnDraw;
+
+    private void runOnDraw(Runnable runnable) {
+        mRunOnDraw.add(runnable);
+
+    }
+
+    public int getPowerLevel() {
+        return mPowerLevel;
+    }
+
+    public void setPowerLevel(int powerLevel) {
+        mPowerLevel = powerLevel;
+    }
+
+    public void onLowFps(int fps) {
+        if (mPowerLevel < 2) {
+            mPowerLevel++;
+        }
+
+        Log.i("fps=", "onLowFps=" + mPowerLevel);
+        setIntVec2(mPowerLevelId, new int[]{mPowerLevel, 0});
+    }
+
+    public void setBeautyLevel(int level) {
+        setFloatVec2(mSingleStepOffsetLocation, new float[]{2.0f / mInputWidth, 2.0f / mInputHeight});
+        setIntVec2(mPowerLevelId, new int[]{mPowerLevel, 0});
+        switch (level) {
+            case 0:
+                setFloat(mParamsLocation, 0.0f);
+                break;
+            case 1:
+                setFloat(mParamsLocation, 1.0f);
+                break;
+            case 2:
+                setFloat(mParamsLocation, 0.8f);
+                break;
+            case 3:
+                setFloat(mParamsLocation, 0.6f);
+                break;
+            case 4:
+                setFloat(mParamsLocation, 0.4f);
+                break;
+            case 5:
+                setFloat(mParamsLocation, 0.33f);
+                break;
+            default:
+                break;
+        }
+
+        switch (level) {
+            case 0:
+                setFloatVec4(mParamsLocation2, new float[]{0.0f, 0.0f, 0.0f, 0.0f});
+                break;
+            case 1:
+                setFloatVec4(mParamsLocation2, new float[]{1.0f, 1.0f, 0.15f, 0.15f});
+                break;
+            case 2:
+                setFloatVec4(mParamsLocation2, new float[]{0.8f, 0.9f, 0.2f, 0.2f});
+                break;
+            case 3:
+                setFloatVec4(mParamsLocation2, new float[]{0.6f, 0.8f, 0.25f, 0.25f});
+                break;
+            case 4:
+                setFloatVec4(mParamsLocation2, new float[]{0.4f, 0.7f, 0.38f, 0.3f});
+                break;
+            case 5:
+                setFloatVec4(mParamsLocation2, new float[]{0.33f, 0.63f, 0.4f, 0.35f});
+                break;
+            default:
+                break;
+        }
+    }
+
+    public int getProgramId() {
+        return mProgramHandle;
     }
 
     /**
@@ -274,40 +427,51 @@ public class Texture2dProgram {
         //Log.d(TAG, "filt kernel: " + Arrays.toString(mKernel) + ", adj=" + colorAdj);
     }
 
+    int width, height;
+
     /**
      * Sets the size of the texture.  This is used to find adjacent texels when filtering.
      */
     public void setTexSize(int width, int height) {
+        this.width = width;
+        this.height = height;
         float rw = 1.0f / width;
         float rh = 1.0f / height;
 
         // Don't need to create a new array here, but it's syntactically convenient.
-        mTexOffset = new float[] {
-            -rw, -rh,   0f, -rh,    rw, -rh,
-            -rw, 0f,    0f, 0f,     rw, 0f,
-            -rw, rh,    0f, rh,     rw, rh
+        mTexOffset = new float[]{
+                -rw, -rh, 0f, -rh, rw, -rh,
+                -rw, 0f, 0f, 0f, rw, 0f,
+                -rw, rh, 0f, rh, rw, rh
         };
         //Log.d(TAG, "filt size: " + width + "x" + height + ": " + Arrays.toString(mTexOffset));
+    }
+
+    protected void runPendingOnDrawTasks() {
+        while (!mRunOnDraw.isEmpty()) {
+            mRunOnDraw.removeFirst().run();
+        }
     }
 
     /**
      * Issues the draw call.  Does the full setup on every call.
      *
-     * @param mvpMatrix The 4x4 projection matrix.
-     * @param vertexBuffer Buffer with vertex position data.
-     * @param firstVertex Index of first vertex to use in vertexBuffer.
-     * @param vertexCount Number of vertices in vertexBuffer.
+     * @param mvpMatrix       The 4x4 projection matrix.
+     * @param vertexBuffer    Buffer with vertex position data.
+     * @param firstVertex     Index of first vertex to use in vertexBuffer.
+     * @param vertexCount     Number of vertices in vertexBuffer.
      * @param coordsPerVertex The number of coordinates per vertex (e.g. x,y is 2).
-     * @param vertexStride Width, in bytes, of the position data for each vertex (often
-     *        vertexCount * sizeof(float)).
-     * @param texMatrix A 4x4 transformation matrix for texture coords.  (Primarily intended
-     *        for use with SurfaceTexture.)
-     * @param texBuffer Buffer with vertex texture data.
-     * @param texStride Width, in bytes, of the texture data for each vertex.
+     * @param vertexStride    Width, in bytes, of the position data for each vertex (often
+     *                        vertexCount * sizeof(float)).
+     * @param texMatrix       A 4x4 transformation matrix for texture coords.  (Primarily intended
+     *                        for use with SurfaceTexture.)
+     * @param texBuffer       Buffer with vertex texture data.
+     * @param texStride       Width, in bytes, of the texture data for each vertex.
      */
     public void draw(float[] mvpMatrix, FloatBuffer vertexBuffer, int firstVertex,
-            int vertexCount, int coordsPerVertex, int vertexStride,
-            float[] texMatrix, FloatBuffer texBuffer, int textureId, int texStride) {
+                     int vertexCount, int coordsPerVertex, int vertexStride,
+                     float[] texMatrix, FloatBuffer texBuffer, int textureId, int texStride) {
+
         GlUtil.checkGlError("draw start");
 
         // Select the program.
@@ -318,11 +482,7 @@ public class Texture2dProgram {
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(mTextureTarget, textureId);
 
-//        if(mTexture2Target>=0) {
-//            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
-//            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureId);
-//            GLES20.glUniform1i(mTexture2Target, 1);
-//        }
+        runPendingOnDrawTasks();
 
         // Copy the model / view / projection matrix over.
         GLES20.glUniformMatrix4fv(muMVPMatrixLoc, 1, false, mvpMatrix, 0);
@@ -338,7 +498,7 @@ public class Texture2dProgram {
 
         // Connect vertexBuffer to "aPosition".
         GLES20.glVertexAttribPointer(maPositionLoc, coordsPerVertex,
-            GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
+                GLES20.GL_FLOAT, false, vertexStride, vertexBuffer);
         GlUtil.checkGlError("glVertexAttribPointer");
 
         // Enable the "aTextureCoord" vertex attribute.
@@ -348,9 +508,7 @@ public class Texture2dProgram {
         // Connect texBuffer to "aTextureCoord".
         GLES20.glVertexAttribPointer(maTextureCoordLoc, 2,
                 GLES20.GL_FLOAT, false, texStride, texBuffer);
-            GlUtil.checkGlError("glVertexAttribPointer");
-
-
+        GlUtil.checkGlError("glVertexAttribPointer");
 
         // Populate the convolution kernel, if present.
         if (muKernelLoc >= 0) {
@@ -368,5 +526,7 @@ public class Texture2dProgram {
         GLES20.glDisableVertexAttribArray(maTextureCoordLoc);
         GLES20.glBindTexture(mTextureTarget, 0);
         GLES20.glUseProgram(0);
+
+
     }
 }

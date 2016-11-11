@@ -76,7 +76,6 @@ public class RenderThread extends Thread implements
     private float[] mEncodeProjectionMatrix = new float[16];
 
     private Texture2dProgram mTexProgram;
-    private Texture2dProgram mMaskTexProgram;
     private final ScaledDrawable2d mRectDrawable =
             new ScaledDrawable2d(Drawable2d.Prefab.RECTANGLE);
     private final Sprite2d mRect = new Sprite2d(mRectDrawable);
@@ -240,9 +239,9 @@ public class RenderThread extends Thread implements
 
         if (mCameraTexture == null) {
 //            mTexProgram = new Texture2dProgram(Texture2dProgram.ProgramType.TEXTURE_EXT);
-            mTexProgram = new Texture2dProgram(Texture2dProgram.ProgramType.TEXTURE_EXT);
+            mTexProgram = new Texture2dProgram(Texture2dProgram.ProgramType.TEXTURE_EXT_MAGIC_2);
             if (mCameraPreviewWidth > 0) {
-//                mTexProgram.setInputWH(mCameraPreviewWidth, mCameraPreviewHeight);
+                mTexProgram.setInputWH(mCameraPreviewWidth, mCameraPreviewHeight);
             }
             int textureId = mTexProgram.createTextureObject();
             mCameraTexture = new SurfaceTexture(textureId);

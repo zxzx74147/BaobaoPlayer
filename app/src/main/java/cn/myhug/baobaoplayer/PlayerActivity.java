@@ -2,11 +2,10 @@ package cn.myhug.baobaoplayer;
 
 import android.databinding.DataBindingUtil;
 import android.net.Uri;
-import android.os.Handler;
 import android.os.Bundle;
+import android.os.Handler;
 
 import cn.myhug.baobaoplayer.databinding.ActivityPlayerBinding;
-import cn.myhug.baobaoplayer.gles.Texture2dProgram;
 import cn.myhug.baobaoplayer.utils.MagicParams;
 
 public class PlayerActivity extends BaseActivity {
@@ -26,7 +25,6 @@ public class PlayerActivity extends BaseActivity {
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mBinding.videoView.mFilterType = Texture2dProgram.ProgramType.TEXTURE_EXT_FILTER;
                 mBinding.videoView.setVideoURI(uri);
                 mBinding.videoView.start();
 

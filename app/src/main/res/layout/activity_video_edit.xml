@@ -2,6 +2,9 @@
 <layout xmlns:android="http://schemas.android.com/apk/res/android">
 
     <data>
+        <variable
+            name="handler"
+            type="cn.myhug.baobaoplayer.edit.VideoEditActivity" />
 
     </data>
 
@@ -12,29 +15,64 @@
         android:orientation="vertical">
 
         <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/default_gap_80"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/back"
+                android:gravity="center"
+                android:layout_width="wrap_content"
+                android:textColor="@color/white"
+                android:drawableLeft="@drawable/md_nav_back"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:onClick="@{() -> handler.finish()}"
+                android:text="@string/back" />
+
+            <TextView
+                android:text="@string/edit_video"
+                android:textSize="@dimen/default_size_32"
+                android:layout_centerInParent="true"
+                android:layout_width="wrap_content"
+                android:textColor="@color/white"
+                android:layout_height="wrap_content" />
+            <TextView
+                android:id="@+id/send"
+                android:layout_width="wrap_content"
+                android:textColor="@color/white"
+                android:gravity="center"
+                android:paddingRight="@dimen/default_gap_30"
+                android:layout_alignParentRight="true"
+                android:layout_height="match_parent"
+                android:onClick="@{handler.onDone}"
+                android:background="@null"
+                android:text="@string/publish" />
+        </RelativeLayout>
+
+        <RelativeLayout
             android:id="@+id/activity_video_edit"
             android:layout_width="match_parent"
             android:layout_height="0dip"
             android:layout_weight="1">
 
-            <cn.myhug.baobaoplayer.widget.BBFilterVideoView
+            <cn.myhug.baobaoplayer.widget.BBFilterVideoView2
                 android:id="@+id/video_view"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:layout_centerHorizontal="true"
                 android:layout_centerVertical="true" />
 
-
-            <LinearLayout
+            <SeekBar
+                android:id="@+id/video_seek_bar"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="@dimen/default_gap_4"
+                android:layout_alignParentBottom="true"
+                android:max="1000"
+                android:padding="0dip"
+                android:progressDrawable="@drawable/progress_h"
+                android:thumb="@null" />
 
-                <Button
-                    android:id="@+id/send"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/publish" />
-            </LinearLayout>
         </RelativeLayout>
 
         <LinearLayout
@@ -44,17 +82,11 @@
             android:background="@color/black"
             android:orientation="vertical">
 
-            <android.support.v7.widget.AppCompatSeekBar
-                android:id="@+id/video_seek_bar"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="10dp"
-                android:max="1000" />
-
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/default_gap_80"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <TextView
@@ -63,12 +95,32 @@
                     android:layout_marginLeft="@dimen/default_gap_30"
                     android:text="@string/filter"
                     android:textColor="@color/white"
-                    android:textSize="@dimen/default_size_28" />
+                    android:textSize="@dimen/default_size_28"
+                    android:textStyle="bold" />
+
+                <View
+                    android:layout_width="0dip"
+                    android:layout_height="1dip"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginRight="@dimen/default_gap_30"
+                    android:drawableLeft="@drawable/icon_xiaosp_photo_music"
+                    android:drawablePadding="@dimen/default_gap_10"
+                    android:gravity="center"
+
+                    android:text="@string/add_music"
+                    android:textColor="@color/white"
+                    android:textSize="@dimen/default_size_24"
+                    android:textStyle="bold" />
             </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="1px" />
+                android:layout_height="1px"
+                android:background="@color/grey_div" />
 
             <android.support.v7.widget.RecyclerView
                 android:id="@+id/filter_recyclerview"

@@ -7,4 +7,5 @@
     <color name="grey">#8f000000</color>
     <color name="yello">#FFa300</color>
     <color name="white">#FFFFFF</color>
+    <color name="grey_div">#333333</color>
 </resources>

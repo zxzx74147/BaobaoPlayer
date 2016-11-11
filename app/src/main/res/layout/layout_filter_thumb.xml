@@ -25,15 +25,18 @@
         app:riv_corner_radius="25dip"
         app:riv_border_width="@dimen/default_gap_3"
         android:layout_width="50dp"
+        android:layout_marginTop="@dimen/default_gap_30"
         android:layout_height="50dp" />
 
     <!---->
     <TextView
         android:text="@{item.mFilterName}"
         android:layout_gravity="center_horizontal"
-        android:textSize="20sp"
-        android:textColor="#ffffff"
+        android:textSize="@dimen/default_size_24"
+        android:textColor="@color/grey_green"
+        android:layout_marginTop="@dimen/default_gap_20"
         android:gravity="center"
+        android:enabled="@{item.isSelected}"
         android:layout_height="wrap_content"
         android:layout_width="wrap_content" />
 

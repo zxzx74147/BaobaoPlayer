@@ -43,6 +43,11 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.Map;
 
+import cn.myhug.baobaoplayer.filter.IChangeFilter;
+import cn.myhug.baobaoplayer.filter.base.MagicSurfaceInputFilter;
+import cn.myhug.baobaoplayer.filter.base.gpuimage.GPUImageFilter;
+import cn.myhug.baobaoplayer.filter.helper.MagicFilterFactory;
+import cn.myhug.baobaoplayer.filter.helper.MagicFilterType;
 import cn.myhug.baobaoplayer.gles.Drawable2d;
 import cn.myhug.baobaoplayer.gles.EglCore;
 import cn.myhug.baobaoplayer.gles.GlUtil;
@@ -50,8 +55,9 @@ import cn.myhug.baobaoplayer.gles.ScaledDrawable2d;
 import cn.myhug.baobaoplayer.gles.Sprite2d;
 import cn.myhug.baobaoplayer.gles.Texture2dProgram;
 import cn.myhug.baobaoplayer.gles.WindowSurface;
-import tv.danmaku.ijk.media.exo.IjkExoMediaPlayer;
-import tv.danmaku.ijk.media.player.IMediaPlayer;
+import cn.myhug.baobaoplayer.utils.OpenGlUtils;
+import cn.myhug.baobaoplayer.utils.Rotation;
+import cn.myhug.baobaoplayer.utils.TextureRotationUtil;
 
 /**
  * Displays a video file.  The VideoView class
@@ -60,19 +66,19 @@ import tv.danmaku.ijk.media.player.IMediaPlayer;
  * it can be used in any layout manager, and provides various display options
  * such as scaling and tinting.
  */
-public class BBVideoView extends SurfaceView implements MediaPlayerControl {
+public class BBFilterVideoView2 extends SurfaceView implements MediaPlayerControl, IChangeFilter {
     private String TAG = "VideoView";
     // settable by the client
-    private Uri         mUri;
+    private Uri mUri;
     private Map<String, String> mHeaders;
 
     // all possible internal states
-    private static final int STATE_ERROR              = -1;
-    private static final int STATE_IDLE               = 0;
-    private static final int STATE_PREPARING          = 1;
-    private static final int STATE_PREPARED           = 2;
-    private static final int STATE_PLAYING            = 3;
-    private static final int STATE_PAUSED             = 4;
+    private static final int STATE_ERROR = -1;
+    private static final int STATE_IDLE = 0;
+    private static final int STATE_PREPARING = 1;
+    private static final int STATE_PREPARED = 2;
+    private static final int STATE_PLAYING = 3;
+    private static final int STATE_PAUSED = 4;
     private static final int STATE_PLAYBACK_COMPLETED = 5;
 
     // mCurrentState is a VideoView object's current state.
@@ -81,47 +87,46 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
     // calling pause() intends to bring the object to a target state
     // of STATE_PAUSED.
     private int mCurrentState = STATE_IDLE;
-    private int mTargetState  = STATE_IDLE;
+    private int mTargetState = STATE_IDLE;
 
     // All the stuff we need for playing and showing a video
     private SurfaceHolder mSurfaceHolder = null;
-//    private MediaPlayer mMediaPlayer = null;
-    private IMediaPlayer mMediaPlayer = null;
-    private int         mVideoWidth;
-    private int         mVideoHeight;
-    private int         mSurfaceWidth;
-    private int         mSurfaceHeight;
+    //    private MediaPlayer mMediaPlayer = null;
+    private MediaPlayer mMediaPlayer = null;
+    private int mVideoWidth;
+    private int mVideoHeight;
+    private int mSurfaceWidth;
+    private int mSurfaceHeight;
     private MediaController mMediaController;
-    private IMediaPlayer.OnCompletionListener mOnCompletionListener;
-    private IMediaPlayer.OnPreparedListener mOnPreparedListener;
-    private int         mCurrentBufferPercentage;
-    private IMediaPlayer.OnErrorListener mOnErrorListener;
-    private IMediaPlayer.OnInfoListener  mOnInfoListener;
-    private int         mSeekWhenPrepared;  // recording the seek position while preparing
-    private boolean     mCanPause;
-    private boolean     mCanSeekBack;
-    private boolean     mCanSeekForward;
+    private MediaPlayer.OnCompletionListener mOnCompletionListener;
+    private MediaPlayer.OnPreparedListener mOnPreparedListener;
+    private int mCurrentBufferPercentage;
+    private MediaPlayer.OnErrorListener mOnErrorListener;
+    private MediaPlayer.OnInfoListener mOnInfoListener;
+    private int mSeekWhenPrepared;  // recording the seek position while preparing
+    private boolean mCanPause;
+    private boolean mCanSeekBack;
+    private boolean mCanSeekForward;
     private Context mContext;
-    private  FloatBuffer mGLCubeBuffer;
-    private  FloatBuffer mGLTextureBuffer;
-    static final float CUBE[] = {
-            -1.0f, -1.0f,
-            1.0f, -1.0f,
-            -1.0f, 1.0f,
-            1.0f, 1.0f,
-    };
+    private GPUImageFilter mImageFilter;
+    private GPUImageFilter mImageFilterBack;
+    private FloatBuffer mGLCubeBuffer;
+    private FloatBuffer mGLTextureBuffer;
+    private MagicSurfaceInputFilter mSurfaceFilter = null;
+    protected int textureId = OpenGlUtils.NO_TEXTURE;
 
-    public BBVideoView(Context context) {
+
+    public BBFilterVideoView2(Context context) {
         super(context);
         initVideoView();
     }
 
-    public BBVideoView(Context context, AttributeSet attrs) {
+    public BBFilterVideoView2(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
         initVideoView();
     }
 
-    public BBVideoView(Context context, AttributeSet attrs, int defStyle) {
+    public BBFilterVideoView2(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
         initVideoView();
     }
@@ -132,16 +137,16 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
         int width = getDefaultSize(mVideoWidth, widthMeasureSpec);
         int height = getDefaultSize(mVideoHeight, heightMeasureSpec);
         if (mVideoWidth > 0 && mVideoHeight > 0) {
-            if ( mVideoWidth * height  > width * mVideoHeight ) {
+            if (mVideoWidth * height > width * mVideoHeight) {
                 //Log.i("@@@", "image too tall, correcting");
                 height = width * mVideoHeight / mVideoWidth;
-            } else if ( mVideoWidth * height  < width * mVideoHeight ) {
+            } else if (mVideoWidth * height < width * mVideoHeight) {
                 //Log.i("@@@", "image too wide, correcting");
                 width = height * mVideoWidth / mVideoHeight;
             } else {
                 //Log.i("@@@", "aspect ratio is correct: " +
-                        //width+"/"+height+"="+
-                        //mVideoWidth+"/"+mVideoHeight);
+                //width+"/"+height+"="+
+                //mVideoWidth+"/"+mVideoHeight);
             }
         }
         //Log.i("@@@@@@@@@@", "setting size: " + width + 'x' + height);
@@ -151,19 +156,19 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
     @Override
     public void onInitializeAccessibilityEvent(AccessibilityEvent event) {
         super.onInitializeAccessibilityEvent(event);
-        event.setClassName(BBVideoView.class.getName());
+        event.setClassName(BBFilterVideoView2.class.getName());
     }
 
     @Override
     public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
-        info.setClassName(BBVideoView.class.getName());
+        info.setClassName(BBFilterVideoView2.class.getName());
     }
 
     public int resolveAdjustedSize(int desiredSize, int measureSpec) {
         int result = desiredSize;
         int specMode = MeasureSpec.getMode(measureSpec);
-        int specSize =  MeasureSpec.getSize(measureSpec);
+        int specSize = MeasureSpec.getSize(measureSpec);
 
         switch (specMode) {
             case MeasureSpec.UNSPECIFIED:
@@ -187,7 +192,7 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
                 break;
         }
         return result;
-}
+    }
 
     private void initVideoView() {
         mContext = getContext();
@@ -199,10 +204,20 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
         setFocusableInTouchMode(true);
         requestFocus();
         mCurrentState = STATE_IDLE;
-        mTargetState  = STATE_IDLE;
-        mGLCubeBuffer = ByteBuffer.allocateDirect(CUBE.length * 4)
+        mTargetState = STATE_IDLE;
+        mGLCubeBuffer = ByteBuffer.allocateDirect(TextureRotationUtil.CUBE.length * 4)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
+        mGLTextureBuffer = ByteBuffer.allocateDirect(TextureRotationUtil.TEXTURE_NO_ROTATION.length * 4)
+                .order(ByteOrder.nativeOrder())
+                .asFloatBuffer();
+        mGLCubeBuffer.clear();
+        mGLCubeBuffer.put(TextureRotationUtil.CUBE).position(0);
+        mGLTextureBuffer.clear();
+        float[] textureCords = TextureRotationUtil.getRotation(Rotation.fromInt(0), false, true);
+        mGLTextureBuffer.put(textureCords).position(0);
+
+
     }
 
     public void setVideoPath(String path) {
@@ -223,6 +238,7 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
         openVideo();
         requestLayout();
         invalidate();
+//        mMediaPlayer.setLooping(true);
     }
 
     public void stopPlayback() {
@@ -231,19 +247,18 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
             mMediaPlayer.release();
             mMediaPlayer = null;
             mCurrentState = STATE_IDLE;
-            mTargetState  = STATE_IDLE;
-            if(mWindowSurface!=null){
+            mTargetState = STATE_IDLE;
+            if (mWindowSurface != null) {
                 mWindowSurface.release();
                 mWindowSurface = null;
             }
-            if(mDecodeSurfaceTexture!=null){
+            if (mDecodeSurfaceTexture != null) {
                 mDecodeSurfaceTexture.release();
                 mDecodeSurfaceTexture = null;
             }
-            if(mEglCore!=null){
-                mEglCore.release();
-                mEglCore = null;
-            }
+
+
+            releaseSurface();
         }
     }
 
@@ -264,8 +279,7 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
         try {
 //            mMediaPlayer = new MediaPlayer();
 //            mMediaPlayer = new IjkMediaPlayer(mContext);
-            mMediaPlayer = new IjkExoMediaPlayer(mContext);
-//            mMediaPlayer = new TextureMediaPlayer(mMediaPlayer);
+            mMediaPlayer = new MediaPlayer();
             mMediaPlayer.setOnPreparedListener(mPreparedListener);
             mMediaPlayer.setOnVideoSizeChangedListener(mSizeChangedListener);
             mMediaPlayer.setOnCompletionListener(mCompletionListener);
@@ -274,8 +288,6 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
             mMediaPlayer.setOnBufferingUpdateListener(mBufferingUpdateListener);
             mCurrentBufferPercentage = 0;
             mMediaPlayer.setDataSource(mContext, mUri, mHeaders);
-//            mMediaPlayer.setDisplay(mSurfaceHolder);
-//            mMediaPlayer.setSurface(mSurfaceHolder.getSurface());
             prepareSurface();
             mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
             mMediaPlayer.setScreenOnWhilePlaying(true);
@@ -311,26 +323,27 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
         if (mMediaPlayer != null && mMediaController != null) {
             mMediaController.setMediaPlayer(this);
             View anchorView = this.getParent() instanceof View ?
-                    (View)this.getParent() : this;
+                    (View) this.getParent() : this;
             mMediaController.setAnchorView(anchorView);
             mMediaController.setEnabled(isInPlaybackState());
         }
     }
 
-    IMediaPlayer.OnVideoSizeChangedListener mSizeChangedListener =
-        new IMediaPlayer.OnVideoSizeChangedListener() {
+    MediaPlayer.OnVideoSizeChangedListener mSizeChangedListener =
+            new MediaPlayer.OnVideoSizeChangedListener() {
 
-            @Override
-            public void onVideoSizeChanged(IMediaPlayer mp, int width, int height, int sar_num, int sar_den) {
-                mVideoWidth = mp.getVideoWidth();
-                mVideoHeight = mp.getVideoHeight();
-                if (mVideoWidth != 0 && mVideoHeight != 0) {
-                    getHolder().setFixedSize(mVideoWidth, mVideoHeight);
-                    requestLayout();
+                @Override
+                public void onVideoSizeChanged(MediaPlayer mp, int width, int height) {
+                    mVideoWidth = mp.getVideoWidth();
+                    mVideoHeight = mp.getVideoHeight();
+                    if (mVideoWidth != 0 && mVideoHeight != 0) {
+                        getHolder().setFixedSize(mVideoWidth, mVideoHeight);
+                        requestLayout();
+                    }
                 }
-            }
 
-//            public void onVideoSizeChanged(IMediaPlayer mp, int width, int height) {
+
+//            public void onVideoSizeChanged(MediaPlayer mp, int width, int height) {
 //                mVideoWidth = mp.getVideoWidth();
 //                mVideoHeight = mp.getVideoHeight();
 //                if (mVideoWidth != 0 && mVideoHeight != 0) {
@@ -338,10 +351,10 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
 //                    requestLayout();
 //                }
 //            }
-    };
+            };
 
-    IMediaPlayer.OnPreparedListener mPreparedListener = new IMediaPlayer.OnPreparedListener() {
-        public void onPrepared(IMediaPlayer mp) {
+    MediaPlayer.OnPreparedListener mPreparedListener = new MediaPlayer.OnPreparedListener() {
+        public void onPrepared(MediaPlayer mp) {
             mCurrentState = STATE_PREPARED;
 
             // Get the capabilities of the player for this stream
@@ -356,7 +369,7 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
 //                mCanSeekForward = !data.has(Metadata.SEEK_FORWARD_AVAILABLE)
 //                        || data.getBoolean(Metadata.SEEK_FORWARD_AVAILABLE);
 //            } else {
-                mCanPause = mCanSeekBack = mCanSeekForward = true;
+            mCanPause = mCanSeekBack = mCanSeekForward = true;
 //            }
 
             if (mOnPreparedListener != null) {
@@ -385,12 +398,12 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
                             mMediaController.show();
                         }
                     } else if (!isPlaying() &&
-                               (seekToPosition != 0 || getCurrentPosition() > 0)) {
-                       if (mMediaController != null) {
-                           // Show the media controls when we're paused into a video and make 'em stick.
-                           mMediaController.show(0);
-                       }
-                   }
+                            (seekToPosition != 0 || getCurrentPosition() > 0)) {
+                        if (mMediaController != null) {
+                            // Show the media controls when we're paused into a video and make 'em stick.
+                            mMediaController.show(0);
+                        }
+                    }
                 }
             } else {
                 // We don't know the video size yet, but should start anyway.
@@ -402,43 +415,45 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
         }
     };
 
-    private IMediaPlayer.OnCompletionListener mCompletionListener =
-        new IMediaPlayer.OnCompletionListener() {
-        public void onCompletion(IMediaPlayer mp) {
-            mCurrentState = STATE_PLAYBACK_COMPLETED;
-            mTargetState = STATE_PLAYBACK_COMPLETED;
-            if (mMediaController != null) {
-                mMediaController.hide();
-            }
-            if (mOnCompletionListener != null) {
-                mOnCompletionListener.onCompletion(mMediaPlayer);
-            }
-        }
-    };
+    private MediaPlayer.OnCompletionListener mCompletionListener =
+            new MediaPlayer.OnCompletionListener() {
+                public void onCompletion(MediaPlayer mp) {
+                    mCurrentState = STATE_PLAYBACK_COMPLETED;
+                    mTargetState = STATE_PLAYBACK_COMPLETED;
+                    if (mMediaController != null) {
+                        mMediaController.hide();
+                    }
+                    if (mOnCompletionListener != null) {
+                        mOnCompletionListener.onCompletion(mMediaPlayer);
+                    }
+                    seekTo(0);
+                    start();
+                }
+            };
 
-    private IMediaPlayer.OnErrorListener mErrorListener =
-        new IMediaPlayer.OnErrorListener() {
-        public boolean onError(IMediaPlayer mp, int framework_err, int impl_err) {
-            Log.d(TAG, "Error: " + framework_err + "," + impl_err);
-            mCurrentState = STATE_ERROR;
-            mTargetState = STATE_ERROR;
-            if (mMediaController != null) {
-                mMediaController.hide();
-            }
+    private MediaPlayer.OnErrorListener mErrorListener =
+            new MediaPlayer.OnErrorListener() {
+                public boolean onError(MediaPlayer mp, int framework_err, int impl_err) {
+                    Log.d(TAG, "Error: " + framework_err + "," + impl_err);
+                    mCurrentState = STATE_ERROR;
+                    mTargetState = STATE_ERROR;
+                    if (mMediaController != null) {
+                        mMediaController.hide();
+                    }
 
             /* If an error handler has been supplied, use it and finish. */
-            if (mOnErrorListener != null) {
-                if (mOnErrorListener.onError(mMediaPlayer, framework_err, impl_err)) {
-                    return true;
-                }
-            }
+                    if (mOnErrorListener != null) {
+                        if (mOnErrorListener.onError(mMediaPlayer, framework_err, impl_err)) {
+                            return true;
+                        }
+                    }
 
             /* Otherwise, pop up an error dialog so the user knows that
              * something bad has happened. Only try and pop up the dialog
              * if we're attached to a window. When we're going away and no
              * longer have a window, don't bother showing the user an error.
              */
-            if (getWindowToken() != null) {
+                    if (getWindowToken() != null) {
 //                Resources r = mContext.getResources();
 //                int messageId;
 //
@@ -463,17 +478,17 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
 //                                })
 //                        .setCancelable(false)
 //                        .show();
-            }
-            return true;
-        }
-    };
+                    }
+                    return true;
+                }
+            };
 
-    private IMediaPlayer.OnBufferingUpdateListener mBufferingUpdateListener =
-        new IMediaPlayer.OnBufferingUpdateListener() {
-        public void onBufferingUpdate(IMediaPlayer mp, int percent) {
-            mCurrentBufferPercentage = percent;
-        }
-    };
+    private MediaPlayer.OnBufferingUpdateListener mBufferingUpdateListener =
+            new MediaPlayer.OnBufferingUpdateListener() {
+                public void onBufferingUpdate(MediaPlayer mp, int percent) {
+                    mCurrentBufferPercentage = percent;
+                }
+            };
 
     /**
      * Register a callback to be invoked when the media file
@@ -481,8 +496,7 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
      *
      * @param l The callback that will be run
      */
-    public void setOnPreparedListener(IMediaPlayer.OnPreparedListener l)
-    {
+    public void setOnPreparedListener(MediaPlayer.OnPreparedListener l) {
         mOnPreparedListener = l;
     }
 
@@ -492,8 +506,7 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
      *
      * @param l The callback that will be run
      */
-    public void setOnCompletionListener(IMediaPlayer.OnCompletionListener l)
-    {
+    public void setOnCompletionListener(MediaPlayer.OnCompletionListener l) {
         mOnCompletionListener = l;
     }
 
@@ -505,8 +518,7 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
      *
      * @param l The callback that will be run
      */
-    public void setOnErrorListener(IMediaPlayer.OnErrorListener l)
-    {
+    public void setOnErrorListener(MediaPlayer.OnErrorListener l) {
         mOnErrorListener = l;
     }
 
@@ -516,18 +528,16 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
      *
      * @param l The callback that will be run
      */
-    public void setOnInfoListener(IMediaPlayer.OnInfoListener l) {
+    public void setOnInfoListener(MediaPlayer.OnInfoListener l) {
         mOnInfoListener = l;
     }
 
-    SurfaceHolder.Callback mSHCallback = new SurfaceHolder.Callback()
-    {
+    SurfaceHolder.Callback mSHCallback = new SurfaceHolder.Callback() {
         public void surfaceChanged(SurfaceHolder holder, int format,
-                                    int w, int h)
-        {
+                                   int w, int h) {
             mSurfaceWidth = w;
             mSurfaceHeight = h;
-            boolean isValidState =  (mTargetState == STATE_PLAYING);
+            boolean isValidState = (mTargetState == STATE_PLAYING);
             boolean hasValidSize = (mVideoWidth == w && mVideoHeight == h);
             if (mMediaPlayer != null && isValidState && hasValidSize) {
                 if (mSeekWhenPrepared != 0) {
@@ -538,14 +548,12 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
             updateGeometry();
         }
 
-        public void surfaceCreated(SurfaceHolder holder)
-        {
+        public void surfaceCreated(SurfaceHolder holder) {
             mSurfaceHolder = holder;
             openVideo();
         }
 
-        public void surfaceDestroyed(SurfaceHolder holder)
-        {
+        public void surfaceDestroyed(SurfaceHolder holder) {
             // after we return from this we can't use the surface any more
             mSurfaceHolder = null;
             if (mMediaController != null) mMediaController.hide();
@@ -563,8 +571,9 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
             mMediaPlayer = null;
             mCurrentState = STATE_IDLE;
             if (cleartargetstate) {
-                mTargetState  = STATE_IDLE;
+                mTargetState = STATE_IDLE;
             }
+            releaseSurface();
         }
     }
 
@@ -585,15 +594,14 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
     }
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event)
-    {
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
         boolean isKeyCodeSupported = keyCode != KeyEvent.KEYCODE_BACK &&
-                                     keyCode != KeyEvent.KEYCODE_VOLUME_UP &&
-                                     keyCode != KeyEvent.KEYCODE_VOLUME_DOWN &&
-                                     keyCode != KeyEvent.KEYCODE_VOLUME_MUTE &&
-                                     keyCode != KeyEvent.KEYCODE_MENU &&
-                                     keyCode != KeyEvent.KEYCODE_CALL &&
-                                     keyCode != KeyEvent.KEYCODE_ENDCALL;
+                keyCode != KeyEvent.KEYCODE_VOLUME_UP &&
+                keyCode != KeyEvent.KEYCODE_VOLUME_DOWN &&
+                keyCode != KeyEvent.KEYCODE_VOLUME_MUTE &&
+                keyCode != KeyEvent.KEYCODE_MENU &&
+                keyCode != KeyEvent.KEYCODE_CALL &&
+                keyCode != KeyEvent.KEYCODE_ENDCALL;
         if (isInPlaybackState() && isKeyCodeSupported && mMediaController != null) {
             if (keyCode == KeyEvent.KEYCODE_HEADSETHOOK ||
                     keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
@@ -658,6 +666,15 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
 
     public void resume() {
         openVideo();
+    }
+
+    public void resume2() {
+        if (!isInPlaybackState()) {
+            if (mMediaPlayer!=null&&!mMediaPlayer.isPlaying()) {
+                mMediaPlayer.start();
+                mCurrentState = STATE_PLAYING;
+            }
+        }
     }
 
     public int getDuration() {
@@ -734,81 +751,127 @@ public class BBVideoView extends SurfaceView implements MediaPlayerControl {
 
     private int mWindowSurfaceWidth;
     private int mWindowSurfaceHeight;
-    int mDecodeTextureId = 0;
 
-    private float mPosX, mPosY;
-    public Texture2dProgram.ProgramType mFilterType = Texture2dProgram.ProgramType.TEXTURE_EXT_FILTER;
+    public void releaseSurface(){
+        if (mSurfaceFilter != null) {
+            mSurfaceFilter.destroy();
+            mSurfaceFilter = null;
+        }
+        if (mImageFilter != null) {
+            mImageFilter.destroy();
+            mImageFilter = null;
+        }
+        if(mEglCore!=null){
+            mEglCore.release();
+            mEglCore = null;
+        }
+        textureId = OpenGlUtils.NO_TEXTURE;
 
-    public void  prepareSurface(){
-        if(mEglCore == null) {
+    }
+    public void prepareSurface() {
+
+
+        if (mEglCore == null) {
             mEglCore = new EglCore(null, 0);
             mWindowSurface = new WindowSurface(mEglCore, mSurfaceHolder.getSurface(), false);
             mWindowSurface.makeCurrent();
+            mImageFilter = MagicFilterFactory.initFilters(MagicFilterType.NONE);
+            mImageFilter.init();
+            mSurfaceFilter = new MagicSurfaceInputFilter();
+            mSurfaceFilter.init();
 
-            mTexProgram = new Texture2dProgram(mFilterType);
-            mDecodeTextureId = mTexProgram.createTextureObject();
-            mDecodeSurfaceTexture = new SurfaceTexture(mDecodeTextureId);
-            mRect.setTexture(mDecodeTextureId);
-            Surface decodeSurface = new Surface(mDecodeSurfaceTexture);
-            mMediaPlayer.setSurface(decodeSurface);
+
         }
         mWindowSurfaceWidth = mWindowSurface.getWidth();
         mWindowSurfaceHeight = mWindowSurface.getHeight();
-
-        mDecodeSurfaceTexture.setOnFrameAvailableListener(mDecodeFrameAvaliableListener);
         Matrix.orthoM(mDisplayProjectionMatrix, 0, 0, mWindowSurfaceWidth, 0, getHeight(), -1, 1);
-        mPosX = mWindowSurfaceWidth/2;
-        mPosY = getHeight()/2;
-        mRect.setScale(mWindowSurfaceWidth, getHeight());
-        mRect.setPosition(mPosX, mPosY);
-        mRect.setRotation(0);
+
+        if (textureId == OpenGlUtils.NO_TEXTURE) {
+            textureId = OpenGlUtils.getExternalOESTextureID();
+            if (textureId != OpenGlUtils.NO_TEXTURE) {
+                mDecodeSurfaceTexture = new SurfaceTexture(textureId);
+                mMediaPlayer.setSurface(new Surface(mDecodeSurfaceTexture));
+                mDecodeSurfaceTexture.setOnFrameAvailableListener(mDecodeFrameAvaliableListener);
+            }
+        }
+//        OutputSurface mOutput = new OutputSurface();
+//        mOutput.getSurface();
+
+        updateGeometry();
     }
 
     private void updateGeometry() {
+        if (mVideoHeight == 0 || mWindowSurfaceWidth == 0) {
+            return;
+        }
         int width = mWindowSurfaceWidth;
         int height = mWindowSurfaceHeight;
-        if(mVideoWidth>0) {
+        if (mVideoWidth > 0) {
             height = mVideoHeight * width / mVideoWidth;
         }
-//        int smallDim = Math.min(width, height);
-//        // Max scale is a bit larger than the screen, so we can show over-size.
-//        float scaled = smallDim * (mSizePercent / 100.0f) * 1.25f;
-//        float cameraAspect = (float) mCameraPreviewWidth / mCameraPreviewHeight;
-//        int newWidth = Math.round(scaled * cameraAspect);
-//        int newHeight = Math.round(scaled);
+        mWindowSurfaceWidth = width;
+        mWindowSurfaceHeight = height;
 
-//        float zoomFactor = 1.0f - (mZoomPercent / 100.0f);
-//        int rotAngle = Math.round(360 * (mRotatePercent / 100.0f));
-        mPosX = width/2;
-        mPosY = height/2;
-        mRect.setScale(width, height);
-        mRect.setPosition(mPosX, mPosY);
-        mRect.setRotation(0);
-//        mGPUImageFilter.onOutputSizeChanged(mWindowSurfaceWidth, mWindowSurfaceHeight);
+        if (mImageFilter == null) {
+            return;
+        }
 
+        mImageFilter.onDisplaySizeChanged(width, height);
+        mImageFilter.onInputSizeChanged(mVideoWidth, mVideoHeight);
 
+        if (mSurfaceFilter == null) {
+            return;
+        }
+//        mSurfaceFilter.onDisplaySizeChanged(width, height);
+        mSurfaceFilter.onDisplaySizeChanged(mVideoWidth, mVideoHeight);
+        mSurfaceFilter.onInputSizeChanged(mVideoWidth, mVideoHeight);
+        mSurfaceFilter.initSurfaceFrameBuffer(mVideoWidth, mVideoHeight);
     }
 
 
-    private SurfaceTexture.OnFrameAvailableListener mDecodeFrameAvaliableListener= new SurfaceTexture.OnFrameAvailableListener(){
-        public void onFrameAvailable(SurfaceTexture texture){
+    private SurfaceTexture.OnFrameAvailableListener mDecodeFrameAvaliableListener = new SurfaceTexture.OnFrameAvailableListener() {
+        public void onFrameAvailable(SurfaceTexture texture) {
             mDecodeSurfaceTexture.updateTexImage();
             draw();
         }
     };
 
+
+    float[] mtx = new float[16];
+
+
     private void draw() {
-        GlUtil.checkGlError("draw start");
         mWindowSurface.makeCurrent();
-        GLES20.glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-        mRect.draw(mTexProgram, mDisplayProjectionMatrix);
 
+        mDecodeSurfaceTexture.getTransformMatrix(mtx);
 
-//        mGPUImageFilter.onDraw(mDecodeTextureId, mGLCubeBuffer, mGLTextureBuffer);
+        mSurfaceFilter.setTextureTransformMatrix(mtx);
+        if (mImageFilterBack != null) {
+            mImageFilter.destroy();
+            mImageFilter = mImageFilterBack;
+            mImageFilterBack = null;
+
+        }
+        if (mImageFilter == null) {
+            mSurfaceFilter.onDrawFrame(textureId, mGLCubeBuffer, mGLTextureBuffer);
+        } else {
+            int id = mSurfaceFilter.onDrawToTexture(textureId);
+            mImageFilter.onDrawFrame(id, mGLCubeBuffer, mGLTextureBuffer);
+        }
         mWindowSurface.swapBuffers();
 
         GlUtil.checkGlError("draw done");
 
+    }
+
+    @Override
+    public void setFilter(GPUImageFilter filter) {
+        mImageFilterBack = filter;
+        mImageFilterBack.init();
+        mImageFilterBack.onDisplaySizeChanged(mWindowSurfaceWidth, mWindowSurfaceHeight);
+        mImageFilterBack.onInputSizeChanged(mVideoWidth, mVideoHeight);
     }
 }

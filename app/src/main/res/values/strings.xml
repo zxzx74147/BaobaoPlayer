@@ -66,4 +66,7 @@
     <string name="delete">删除</string>
     <string name="switch_camera">翻转镜头</string>
     <string name="done">确定</string>
+    <string name="add_music">添加音乐</string>
+    <string name="back">返回</string>
+    <string name="edit_video">编辑视频</string>
 </resources>

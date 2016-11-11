@@ -43,35 +43,41 @@ public class VideoEditActivity extends BaseActivity {
     private ActivityVideoEditBinding mBinding = null;
     private MediaPlayer mBgmPlayer = null;
     private MaterialDialog mProgressDialog = null;
+    private  Uri mSource = null;
 
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mBinding = DataBindingUtil.setContentView(this, R.layout.activity_video_edit);
-        final Uri uri = mIntentData.uri;
+        mBinding.videoSeekBar.setPadding(0, 0, 0, 0);
+        mBinding.setHandler(this);
+        mSource = mIntentData.uri;
+
+        initFilter();
+        initSeekBar();
 
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mBinding.videoView.setVideoURI(uri);
-                mBinding.videoView.start();
-                initFilter();
-                initSeekBar();
                 addBgm();
             }
         }, 300);
 
-        mBinding.send.setOnClickListener(new View.OnClickListener() {
+        mBinding.videoView.postDelayed(new Runnable() {
             @Override
-            public void onClick(View v) {
-                startMix();
+            public void run() {
+                mBinding.videoView.setVideoURI(mSource);
+                mBinding.videoView.start();
+                mBinding.videoView.seekTo(stopPosition);
             }
-        });
+        },300);
 
     }
 
+
     private FilterData mLastFilter = null;
+
     private void initFilter() {
         mBinding.filterRecyclerview.setLayoutManager(new LinearLayoutManager(VideoEditActivity.this, LinearLayoutManager.HORIZONTAL, false));
         RecyclerView.ItemAnimator animator = mBinding.filterRecyclerview.getItemAnimator();
@@ -88,6 +94,7 @@ public class VideoEditActivity extends BaseActivity {
 
         }
         mLastFilter = mFilterData.get(0);
+        mLastFilter.isSelected = true;
         List<BaseItemData> mList = new LinkedList<>();
         List<BaseItemData<FilterData>> filterData = CommonDataConverter.convertData(R.layout.layout_filter_thumb, mFilterData);
 
@@ -107,9 +114,40 @@ public class VideoEditActivity extends BaseActivity {
                 binding.setItem(data);
                 mAdapter.notifyDataSetChanged();
                 mBinding.videoView.setFilter(filter);
-                mBinding.videoView.seekTo(0);
+//                mBinding.videoView.seekTo(0);
             }
         });
+    }
+
+    public void onDone(View view) {
+        startMix();
+    }
+
+    int stopPosition = 0;
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        if (mBinding.videoView.canPause()) {
+            stopPosition = mBinding.videoView.getCurrentPosition();
+            mBinding.videoView.pause();
+
+        }
+        if (mBgmPlayer != null && mBgmPlayer.isPlaying()) {
+            mBgmPlayer.pause();
+        }
+    }
+
+    public void onResume() {
+        super.onResume();
+        if(!mBinding.videoView.isPlaying()) {
+            mBinding.videoView.seekTo(stopPosition);
+            mBinding.videoView.start();
+        }
+
+        if (mBgmPlayer != null && !mBgmPlayer.isPlaying()) {
+            mBgmPlayer.start();
+        }
     }
 
 
@@ -174,20 +212,21 @@ public class VideoEditActivity extends BaseActivity {
     }
 
     private MediaMixer mMuxter = null;
-    private void startMix(){
+
+    private void startMix() {
         final Uri uri = mIntentData.uri;
         File file = FileUtil.getFile("output.mp4");
-        if(file.exists()){
+        if (file.exists()) {
             file.delete();
         }
-        if(!file.exists()){
+        if (!file.exists()) {
             try {
                 file.createNewFile();
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        mProgressDialog  = new MaterialDialog.Builder(this)
+        mProgressDialog = new MaterialDialog.Builder(this)
                 .title("处理中")
                 .content("请稍等")
                 .progress(false, 100, true)
@@ -213,7 +252,7 @@ public class VideoEditActivity extends BaseActivity {
     private MediaMixer.IBBMediaMuxterPrgressListener mEncodeListener = new MediaMixer.IBBMediaMuxterPrgressListener() {
         @Override
         public void onProgress(int progress) {
-            if(mProgressDialog!=null) {
+            if (mProgressDialog != null) {
                 mProgressDialog.setProgress(progress);
             }
         }
