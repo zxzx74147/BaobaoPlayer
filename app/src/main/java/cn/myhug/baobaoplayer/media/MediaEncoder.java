@@ -84,6 +84,7 @@ public class MediaEncoder {
                             2);
             outputAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, Mp4Config.OUTPUT_AUDIO_BIT_RATE);
             outputAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, Mp4Config.OUTPUT_AUDIO_AAC_PROFILE);
+            outputAudioFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE,65536);
 
 
             mAudioEncoder = null;

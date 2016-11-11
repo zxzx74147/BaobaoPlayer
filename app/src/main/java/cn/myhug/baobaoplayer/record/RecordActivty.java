@@ -3,38 +3,37 @@ package cn.myhug.baobaoplayer.record;
 import android.app.Activity;
 import android.content.Intent;
 import android.databinding.DataBindingUtil;
-import android.opengl.GLSurfaceView;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.MotionEvent;
-import android.view.Surface;
 import android.view.View;
+
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
 
 import cn.myhug.baobaoplayer.BaseActivity;
 import cn.myhug.baobaoplayer.R;
 import cn.myhug.baobaoplayer.data.IntentData;
+import cn.myhug.baobaoplayer.data.RecordData;
 import cn.myhug.baobaoplayer.databinding.ActivityRecordActivtyBinding;
 import cn.myhug.baobaoplayer.edit.VideoEditActivity;
-import cn.myhug.baobaoplayer.filter.MagicCameraDisplay;
-import cn.myhug.baobaoplayer.media.AudioRecordSource;
-import cn.myhug.baobaoplayer.media.MediaEncoder;
 import cn.myhug.baobaoplayer.util.FileSelectUtil;
-import cn.myhug.baobaoplayer.util.FileUtil;
 import cn.myhug.baobaoplayer.util.ZXActivityJumpHelper;
 
 public class RecordActivty extends BaseActivity {
 
-    private static final int STATE_PREPAREING = 0;
-    private static final int STATE_RECORDING = 1;
-    private static final int STATE_PAUSE = 2;
-    private static final int STATE_STOP = 3;
+    public static final int STATE_PREPAREING = 0;
+    public static final int STATE_RECORDING = 1;
+    public static final int STATE_PAUSE = 2;
+    public static final int STATE_STOP = 3;
+    private boolean isDoneRequest = false;
 
-    private static volatile int mState = STATE_PREPAREING;
+
+    private   int mState = STATE_PREPAREING;
 
     private ActivityRecordActivtyBinding mBinding = null;
-    private MagicCameraDisplay mMagicCameraDisplay;
-    private MediaEncoder mMediaEncoder = null;
-    private AudioRecordSource mRecordSource = null;
-    private Thread mRecordThread = null;
+    private RecordData mRecordData = new RecordData();
 
 
     @Override
@@ -43,51 +42,60 @@ public class RecordActivty extends BaseActivity {
         mBinding = DataBindingUtil.setContentView(this, R.layout.activity_record_activty);
         mBinding.record.setOnTouchListener(mRecordTouchListener);
         init();
-//        initMediaRecorder();
+        mRecordData.state = STATE_PREPAREING;
+        mBinding.setHandlers(this);
+        EventBus.getDefault().register(this);
+    }
 
-//        mRecordThread = new Thread(mRecordRunnable);
-//        mRecordThread.start();
-//        mRecordThread.setName("record media thread");
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void onMessageEvent(Object event) {
+        if(!isDoneRequest){
+            return;
+        }
+
+        IntentData intentData = new IntentData();
+        intentData.uri = (Uri) event;
+        ZXActivityJumpHelper.startActivity(RecordActivty.this, VideoEditActivity.class, intentData);
+        Intent intent = new Intent();
+        intent.setData((Uri) event);
+        setResult(Activity.RESULT_OK,intent);
+        finish();
     }
 
     private void init() {
-        GLSurfaceView glSurfaceView = mBinding.cameraView;
-        mMagicCameraDisplay = new MagicCameraDisplay(this, glSurfaceView);
+        mBinding.recordView.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                mBinding.recordView.startPreview();
 
-    }
-
-    private boolean initMediaRecorder() {
-        mMediaEncoder = new MediaEncoder();
-        mMediaEncoder.setOutputFile(FileUtil.getFile("record.mp4"));
-        mMediaEncoder.prepare();
-        Surface surface = mMediaEncoder.getEncoderSurface();
-        mMagicCameraDisplay.setEncodeSurface(surface);
-
-        mRecordSource = new AudioRecordSource();
-        mRecordSource.prepare();
-        mRecordSource.startRecord();
-        return true;
+            }
+        },300);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        mMagicCameraDisplay.onPause();
+
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        mMagicCameraDisplay.onResume();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        EventBus.getDefault().unregister(this);
         switchState(STATE_STOP);
+        mBinding.recordView.stop();
+        mBinding.setData(mRecordData);
     }
 
     public void onSelectFile(View v) {
+        if(mState == STATE_RECORDING){
+            return;
+        }
         FileSelectUtil.selectFile(this, "video/mp4", new FileSelectUtil.IFileSelector() {
             @Override
             public void onFileSelect(int resultCode, Intent data) {
@@ -95,34 +103,59 @@ public class RecordActivty extends BaseActivity {
                     IntentData intentData = new IntentData();
                     intentData.uri = data.getData();
                     ZXActivityJumpHelper.startActivity(RecordActivty.this, VideoEditActivity.class, intentData);
+                    Intent intent = new Intent();
+                    intent.setData(data.getData());
+                    setResult(Activity.RESULT_OK,intent);
+                    finish();
                     return;
                 }
             }
         });
     }
 
-    public void onSwapCamera(View v) {
+    public void onDelete(View v) {
+        if(mState == STATE_RECORDING){
+            return;
+        }
+        mRecordData.state = STATE_PREPAREING;
+        mRecordData.duration = 0;
+        mRecordData.ready = false;
+        mBinding.recordView.resetRecord();
 
+    }
+
+    public void onDone(View v) {
+        if(mState == STATE_RECORDING){
+            return;
+        }
+        isDoneRequest = true;
+        switchState(STATE_STOP);
+
+    }
+
+    public void onSwapCamera(View v) {
+        mBinding.recordView.switchCamera();
     }
 
     private View.OnTouchListener mRecordTouchListener = new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
             if (mState == STATE_STOP) {
-                return false;
+                return true;
             }
-
             switch (event.getAction()) {
                 case MotionEvent.ACTION_DOWN:
                     switchState(STATE_RECORDING);
+                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_s);
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_OUTSIDE:
                 case MotionEvent.ACTION_CANCEL:
                     switchState(STATE_PAUSE);
+                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_n);
                     break;
             }
-            return false;
+            return true;
         }
     };
 
@@ -130,30 +163,38 @@ public class RecordActivty extends BaseActivity {
         if(mState == state){
             return;
         }
+        mState = state;
+
         if(mState == STATE_RECORDING) {
-            mRecordSource.resumeRecord();
-            mMagicCameraDisplay.resumeRecord();
+            mBinding.recordView.post(mCheckStateRunnable);
+            mBinding.recordView.resumeRecord();
         }else if(mState == STATE_PAUSE){
-            mRecordSource.pauseRecord();
-            mMagicCameraDisplay.pauseRecord();
+            mBinding.recordView.pauseRecord();
         }else if(mState == STATE_STOP){
-            mRecordSource.stop();
-            mMagicCameraDisplay.stop();
+            mBinding.recordView.stopRecord();
         }
     }
 
-//    private Runnable mRecordRunnable = new Runnable() {
-//        @Override
-//        public void run() {
-//            try {
-//                initMediaRecorder();
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            } finally {
-//                mRecordSource.stop();
-//
-//            }
-//        }
-//    };
+    private Runnable mCheckStateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            mRecordData.duration  = TimeStampGenerator.sharedInstance().getDuration();
+            if(mBinding.progressBar.getProgress()>333){
+                mRecordData.ready = true;
+                mBinding.done.setEnabled(true);
+            }else{
+                mBinding.done.setEnabled(false);
+            }
+            mBinding.setData(mRecordData);
+            if(mState == STATE_RECORDING) {
+                mBinding.recordView.postDelayed(this,30);
+            }
+            if(mBinding.progressBar.getProgress()>=1000){
+                switchState(STATE_STOP);
+            }
+
+        }
+    };
+
 
 }

@@ -107,10 +107,9 @@ public class VideoEditActivity extends BaseActivity {
                 binding.setItem(data);
                 mAdapter.notifyDataSetChanged();
                 mBinding.videoView.setFilter(filter);
+                mBinding.videoView.seekTo(0);
             }
         });
-
-
     }
 
 

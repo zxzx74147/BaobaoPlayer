@@ -6,6 +6,14 @@
         <variable
             name="handlers"
             type="cn.myhug.baobaoplayer.record.RecordActivty" />
+
+        <variable
+            name="data"
+            type="cn.myhug.baobaoplayer.data.RecordData" />
+
+        <import type="java.lang.Math" />
+
+        <import type="android.view.View" />
     </data>
 
     <LinearLayout
@@ -17,11 +25,14 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="@dimen/default_gap_50">
+            android:layout_height="@dimen/default_gap_90">
 
             <ImageButton
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:paddingLeft="@dimen/default_gap_20"
+                android:paddingRight="@dimen/default_gap_20"
                 android:src="@android:drawable/ic_menu_close_clear_cancel" />
 
             <View
@@ -31,21 +42,87 @@
 
             <ImageButton
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@android:drawable/arrow_down_float" />
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:paddingLeft="@dimen/default_gap_20"
+                android:paddingRight="@dimen/default_gap_20"
+                android:src="@drawable/icon_photoflash_off_24_d" />
         </LinearLayout>
 
-        <LinearLayout
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="0dip"
             android:layout_weight="1">
 
-            <android.opengl.GLSurfaceView
-                android:id="@+id/camera_view"
+            <cn.myhug.baobaoplayer.record.BroadCastView
+                android:id="@+id/record_view"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_below="@+id/title" />
-        </LinearLayout>
+                android:layout_height="match_parent" />
+
+            <FrameLayout
+                android:layout_width="match_parent"
+
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true">
+
+                <ProgressBar
+                    android:id="@+id/progress_bar"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="fill_parent"
+                    android:layout_height="@dimen/default_gap_4"
+                    android:layout_gravity="bottom"
+                    android:max="1000"
+                    android:progress='@{(int)Math.min(data.duration/10000000,1000)}'
+                    android:progressDrawable="@drawable/progress_h" />
+
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom">
+
+                    <View
+                        android:layout_width="0dip"
+                        android:layout_height="1dip"
+                        android:layout_weight="10" />
+
+
+                    <ImageView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="@dimen/default_gap_14"
+                        android:src="@drawable/bg_xiaosp_record_warn_3s"
+                        android:visibility='@{(data.duration/10000000)>=333L? View.GONE : View.VISIBLE}' />
+
+                    <View
+                        android:layout_width="0dip"
+                        android:layout_height="1dip"
+                        android:layout_weight="25" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom">
+
+                    <View
+                        android:layout_width="0dip"
+                        android:layout_height="1dip"
+                        android:layout_weight="1" />
+
+
+                    <View
+                        android:layout_width="@dimen/default_gap_4"
+                        android:layout_height="@dimen/default_gap_4"
+                        android:background="@color/white" />
+
+                    <View
+                        android:layout_width="0dip"
+                        android:layout_height="1dip"
+                        android:layout_weight="2" />
+                </LinearLayout>
+            </FrameLayout>
+        </RelativeLayout>
 
         <RelativeLayout
             android:id="@+id/title"
@@ -53,7 +130,7 @@
 
             android:layout_height="wrap_content">
 
-            <ImageButton
+            <Button
                 android:id="@+id/select_file"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -61,8 +138,25 @@
                 android:layout_marginRight="@dimen/default_gap_90"
                 android:layout_toLeftOf="@+id/record"
                 android:background="@null"
+                android:drawablePadding="@dimen/default_gap_10"
+                android:drawableTop="@drawable/icon_xiaosp_photo_upload"
                 android:onClick="@{handlers.onSelectFile}"
-                android:src="@drawable/icon_xiaosp_photo_delete_n" />
+                android:text="@string/upload_file"
+                android:visibility="@{data.duration==0? View.VISIBLE:View.GONE}" />
+
+            <Button
+                android:id="@+id/delete"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:layout_marginRight="@dimen/default_gap_90"
+                android:layout_toLeftOf="@+id/record"
+                android:background="@null"
+                android:drawablePadding="@dimen/default_gap_10"
+                android:drawableTop="@drawable/icon_xiaosp_photo_delete_n"
+                android:onClick="@{handlers.onDelete}"
+                android:text="@string/delete"
+                android:visibility="@{data.duration>0? View.VISIBLE:View.GONE}" />
 
             <ImageButton
                 android:id="@+id/record"
@@ -72,18 +166,37 @@
                 android:layout_marginBottom="@dimen/default_gap_40"
                 android:layout_marginTop="@dimen/default_gap_40"
                 android:background="@null"
-                android:src="@drawable/record_record" />
+                android:src="@drawable/but_xiaosp_record_n" />
 
-            <ImageButton
+            <Button
                 android:id="@+id/swap_camera"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
                 android:layout_marginLeft="@dimen/default_gap_90"
-                android:onClick="@{handlers.onSwapCamera}"
                 android:layout_toRightOf="@+id/record"
+
                 android:background="@null"
-                android:src="@drawable/icon_xiaosp_photo_evert" />
+                android:drawablePadding="@dimen/default_gap_10"
+                android:drawableTop="@drawable/icon_xiaosp_photo_evert"
+                android:onClick="@{handlers.onSwapCamera}"
+                android:text="@string/switch_camera"
+                android:visibility="@{data.duration==0? View.VISIBLE:View.GONE}" />
+
+            <Button
+                android:id="@+id/done"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:layout_marginLeft="@dimen/default_gap_90"
+                android:layout_toRightOf="@+id/record"
+                android:textColor="@color/grey_green"
+                android:background="@null"
+                android:drawablePadding="@dimen/default_gap_10"
+                android:drawableTop="@drawable/record_done"
+                android:onClick="@{handlers.onDone}"
+                android:text="@string/done"
+                android:visibility="@{data.duration>0? View.VISIBLE:View.GONE}" />
         </RelativeLayout>
 
 

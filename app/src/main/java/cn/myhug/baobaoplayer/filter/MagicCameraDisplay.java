@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.graphics.SurfaceTexture.OnFrameAvailableListener;
 import android.hardware.Camera.Size;
+import android.opengl.EGL14;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.view.Surface;
@@ -12,10 +13,11 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 import cn.myhug.baobaoplayer.filter.base.MagicCameraInputFilter;
+import cn.myhug.baobaoplayer.filter.helper.MagicFilterFactory;
 import cn.myhug.baobaoplayer.filter.helper.MagicFilterType;
 import cn.myhug.baobaoplayer.gles.EglCore;
-import cn.myhug.baobaoplayer.gles.Texture2dProgram;
 import cn.myhug.baobaoplayer.gles.WindowSurface;
+import cn.myhug.baobaoplayer.media.MediaEncoder;
 import cn.myhug.baobaoplayer.record.CameraEngine;
 import cn.myhug.baobaoplayer.utils.OpenGlUtils;
 import cn.myhug.baobaoplayer.utils.Rotation;
@@ -36,21 +38,35 @@ public class MagicCameraDisplay extends MagicDisplay {
      * 过程见{@link OpenGlUtils.getExternalOESTextureID()};
      */
     private SurfaceTexture mSurfaceTexture;
-    private Surface mEncodeSurface = null;
 
-    private EglCore mEglCore;
-    private WindowSurface mWindowSurface;
+    private EglCore mEglCore = null;
+    private WindowSurface mEncoderSurface = null;
+    private MediaEncoder mEncoder = null;
+    private Surface mEncodeSurface = null;
 
     private volatile boolean mIsRecording = false;
 
-    public void setEncodeSurface(Surface surface) {
-        mEncodeSurface = surface;
+    public void setEncoder(final   MediaEncoder encoder) {
+        mGLSurfaceView.queueEvent(new Runnable() {
+
+            @Override
+            public void run() {
+                mEncoder = encoder;
+                mEncoder.prepare();
+                mEncodeSurface = mEncoder.getEncoderSurface();
+
+                if(mEglCore == null){
+                    mEglCore = new EglCore(EGL14.eglGetCurrentContext(),EglCore.FLAG_RECORDABLE);
+                }
+                mEncoderSurface = new WindowSurface(mEglCore,mEncodeSurface,true);
+            }
+        });
+
     }
 
     public MagicCameraDisplay(Context context, GLSurfaceView glSurfaceView) {
         super(context, glSurfaceView);
         mCameraInputFilter = new MagicCameraInputFilter();
-//        setFilter(MagicFilterType.SKETCH);
     }
 
     @Override
@@ -74,29 +90,35 @@ public class MagicCameraDisplay extends MagicDisplay {
 
     @Override
     public void onDrawFrame(GL10 gl) {
-        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
-        mSurfaceTexture.updateTexImage();
+
         mSurfaceTexture.getTransformMatrix(mtx);
         mCameraInputFilter.setTextureTransformMatrix(mtx);
-        if (mFilters == null) {
+        if (mFilter == null) {
             mCameraInputFilter.onDrawFrame(mTextureId, mGLCubeBuffer, mGLTextureBuffer);
+            setFilter(MagicFilterType.NONE);
         } else {
             int textureID = mCameraInputFilter.onDrawToTexture(mTextureId);
-            mFilters.onDrawFrame(textureID, mGLCubeBuffer, mGLTextureBuffer);
+            mFilter.onDrawFrame(textureID, mGLCubeBuffer, mGLTextureBuffer);
+
+            if (mIsRecording && mEncoderSurface != null) {
+                mEncoderSurface.makeCurrent();
+                mFilter.onDrawFrame(textureID, mGLCubeBuffer, mGLTextureBuffer);
+                mEncoderSurface.swapBuffers();
+            }
         }
 
-        if (mIsRecording && mEncodeSurface != null) {
 
-        }
     }
 
     private OnFrameAvailableListener mOnFrameAvailableListener = new OnFrameAvailableListener() {
 
         @Override
         public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-            // TODO Auto-generated method stub
             mGLSurfaceView.requestRender();
+            mSurfaceTexture.updateTexImage();
+
         }
     };
 
@@ -128,7 +150,7 @@ public class MagicCameraDisplay extends MagicDisplay {
     protected void onFilterChanged() {
         super.onFilterChanged();
         mCameraInputFilter.onDisplaySizeChanged(mSurfaceWidth, mSurfaceHeight);
-        if (mFilters != null)
+        if (mFilter != null)
             mCameraInputFilter.initCameraFrameBuffer(mImageWidth, mImageHeight);
         else
             mCameraInputFilter.destroyFramebuffers();

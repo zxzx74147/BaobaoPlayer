@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:exitFadeDuration="@android:integer/config_shortAnimTime">
+    <item android:drawable="@drawable/but_xiaosp_record_d" android:state_enabled="false" />
+    <item android:drawable="@drawable/but_xiaosp_record_s" android:state_enabled="true" android:state_pressed="true" />
+
+    <item android:drawable="@drawable/but_xiaosp_record_n" />
+
+</selector>

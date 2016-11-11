@@ -20,7 +20,7 @@ public abstract class MagicDisplay implements Renderer {
 	 * 1.mCameraInputFilter将SurfaceTexture中YUV数据绘制到FrameBuffer
 	 * 2.mFilters将FrameBuffer中的纹理绘制到屏幕中
 	 */
-	protected GPUImageFilter mFilters;
+	protected GPUImageFilter mFilter;
 	
 	/**
 	 * 所有预览数据绘制画面
@@ -59,7 +59,7 @@ public abstract class MagicDisplay implements Renderer {
 		mContext = context;
 		mGLSurfaceView = glSurfaceView;  
 		
-		mFilters = MagicFilterFactory.initFilters(MagicFilterType.NONE);
+//		mFilter = MagicFilterFactory.initFilters(MagicFilterType.NONE);
 		
 		mGLCubeBuffer = ByteBuffer.allocateDirect(TextureRotationUtil.CUBE.length * 4)
                 .order(ByteOrder.nativeOrder())
@@ -85,12 +85,12 @@ public abstract class MagicDisplay implements Renderer {
        		
             @Override
             public void run() {
-            	if(mFilters != null)
-            		mFilters.destroy();
-            	mFilters = null;
-            	mFilters = MagicFilterFactory.initFilters(filterType);
-            	if(mFilters != null)
-	            	mFilters.init();
+            	if(mFilter != null)
+            		mFilter.destroy();
+            	mFilter = null;
+            	mFilter = MagicFilterFactory.initFilters(filterType);
+            	if(mFilter != null)
+	            	mFilter.init();
             	onFilterChanged();
             }
         });
@@ -98,9 +98,9 @@ public abstract class MagicDisplay implements Renderer {
     }
 	
 	protected void onFilterChanged(){
-		if(mFilters == null)
+		if(mFilter == null)
 			return;
-		mFilters.onDisplaySizeChanged(mSurfaceWidth, mSurfaceHeight);
+		mFilter.onDisplaySizeChanged(mSurfaceWidth, mSurfaceHeight);
 
 	}
 	

@@ -107,9 +107,7 @@ public class MagicCameraInputFilter extends GPUImageFilter {
         GLES20.glViewport(0, 0, mFrameWidth, mFrameHeight);
         GlUtil.checkGlError("glViewport");
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, mFrameBuffers[0]);
-        GlUtil.checkGlError("glBindFramebuffer");
         GLES20.glUseProgram(mGLProgId);
-        GlUtil.checkGlError("glUseProgram");
         if(!isInitialized()) {
             return OpenGlUtils.NOT_INIT;
         }

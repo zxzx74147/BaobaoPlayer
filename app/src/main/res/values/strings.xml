@@ -61,4 +61,9 @@
     <string name="edit_brightness">Bright</string>
     <string name="edit_hue">Hue</string>
     <string name="publish">发布</string>
+    <string name="filter">滤镜</string>
+    <string name="upload_file">上传视频</string>
+    <string name="delete">删除</string>
+    <string name="switch_camera">翻转镜头</string>
+    <string name="done">确定</string>
 </resources>

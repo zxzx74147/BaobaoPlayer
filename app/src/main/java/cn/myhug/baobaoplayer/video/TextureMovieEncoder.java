@@ -34,6 +34,7 @@ import cn.myhug.baobaoplayer.filter.base.gpuimage.GPUImageFilter;
 import cn.myhug.baobaoplayer.filter.helper.MagicFilterFactory;
 import cn.myhug.baobaoplayer.filter.helper.MagicFilterType;
 import cn.myhug.baobaoplayer.gles.EglCore;
+import cn.myhug.baobaoplayer.gles.WindowSurface;
 
 /**
  * Encode a movie from frames rendered from an external texture image.

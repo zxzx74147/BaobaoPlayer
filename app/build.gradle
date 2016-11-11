@@ -66,5 +66,9 @@ dependencies {
     compile 'com.github.bumptech.glide:glide:3.7.0'
     compile 'com.parse.bolts:bolts-tasks:1.4.0'
     compile 'com.parse.bolts:bolts-applinks:1.4.0'
+    // https://mvnrepository.com/artifact/com.googlecode.mp4parser/isoparser
+    compile group: 'com.googlecode.mp4parser', name: 'isoparser', version: '1.1.21'
+    compile 'org.greenrobot:eventbus:3.0.0'
+
 //    compile 'jp.co.cyberagent.android.gpuimage:gpuimage-library:1.4.1'
 }
