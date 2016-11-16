@@ -14,7 +14,9 @@ import android.view.SurfaceHolder;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
+import java.util.List;
 
+import cn.myhug.baobaoplayer.data.RecordData;
 import cn.myhug.baobaoplayer.gles.Drawable2d;
 import cn.myhug.baobaoplayer.gles.EglCore;
 import cn.myhug.baobaoplayer.gles.EglSurfaceBase;
@@ -756,10 +758,28 @@ public class RenderThread extends Thread implements
         finishSurfaceSetup();
     }
 
+    public void switchFlash(int mode) {
+        if (mCamera != null) {
+            Camera.Parameters parameter = mCamera.getParameters();
+            List<String> supportedFlashModes = parameter.getSupportedFlashModes();
+            if(mode == RecordData.FLASH_ON) {
+                if (supportedFlashModes.contains(Camera.Parameters.FLASH_MODE_TORCH)) {
+                    parameter.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+                }
+            }else{
+                if (supportedFlashModes.contains(Camera.Parameters.FLASH_MODE_OFF)) {
+                    parameter.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+                }
+            }
+            mCamera.setParameters(parameter);
+        }
+    }
 
-    /**
-     * Prepares the off-screen framebuffer.
-     */
+
+        /**
+         * Prepares the off-screen framebuffer.
+         */
+
     private void prepareFramebuffer(int width, int height) {
         int[] values = new int[1];
         if (mOffscreenTexture > 0) {

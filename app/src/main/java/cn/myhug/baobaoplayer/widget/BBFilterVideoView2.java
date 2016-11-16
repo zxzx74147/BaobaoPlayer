@@ -248,14 +248,7 @@ public class BBFilterVideoView2 extends SurfaceView implements MediaPlayerContro
             mMediaPlayer = null;
             mCurrentState = STATE_IDLE;
             mTargetState = STATE_IDLE;
-            if (mWindowSurface != null) {
-                mWindowSurface.release();
-                mWindowSurface = null;
-            }
-            if (mDecodeSurfaceTexture != null) {
-                mDecodeSurfaceTexture.release();
-                mDecodeSurfaceTexture = null;
-            }
+
 
 
             releaseSurface();
@@ -280,6 +273,7 @@ public class BBFilterVideoView2 extends SurfaceView implements MediaPlayerContro
 //            mMediaPlayer = new MediaPlayer();
 //            mMediaPlayer = new IjkMediaPlayer(mContext);
             mMediaPlayer = new MediaPlayer();
+            mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
             mMediaPlayer.setOnPreparedListener(mPreparedListener);
             mMediaPlayer.setOnVideoSizeChangedListener(mSizeChangedListener);
             mMediaPlayer.setOnCompletionListener(mCompletionListener);
@@ -765,12 +759,21 @@ public class BBFilterVideoView2 extends SurfaceView implements MediaPlayerContro
             mEglCore.release();
             mEglCore = null;
         }
+        if (mWindowSurface != null) {
+            mWindowSurface.release();
+            mWindowSurface = null;
+        }
+        if (mDecodeSurfaceTexture != null) {
+            mDecodeSurfaceTexture.release();
+            mDecodeSurfaceTexture = null;
+        }
         textureId = OpenGlUtils.NO_TEXTURE;
 
     }
     public void prepareSurface() {
 
-
+        long id = Thread.currentThread().getId();
+        Log.i(TAG,"prepareSurface tid="+id);
         if (mEglCore == null) {
             mEglCore = new EglCore(null, 0);
             mWindowSurface = new WindowSurface(mEglCore, mSurfaceHolder.getSurface(), false);
@@ -831,6 +834,11 @@ public class BBFilterVideoView2 extends SurfaceView implements MediaPlayerContro
 
     private SurfaceTexture.OnFrameAvailableListener mDecodeFrameAvaliableListener = new SurfaceTexture.OnFrameAvailableListener() {
         public void onFrameAvailable(SurfaceTexture texture) {
+            if(mDecodeSurfaceTexture==null){
+                return;
+            }
+            long id = Thread.currentThread().getId();
+            Log.i(TAG,"prepareSurface tid="+id);
             mDecodeSurfaceTexture.updateTexImage();
             draw();
         }
@@ -874,4 +882,6 @@ public class BBFilterVideoView2 extends SurfaceView implements MediaPlayerContro
         mImageFilterBack.onDisplaySizeChanged(mWindowSurfaceWidth, mWindowSurfaceHeight);
         mImageFilterBack.onInputSizeChanged(mVideoWidth, mVideoHeight);
     }
+
+
 }

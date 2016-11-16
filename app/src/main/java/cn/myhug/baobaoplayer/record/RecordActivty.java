@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.databinding.DataBindingUtil;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.MotionEvent;
 import android.view.View;
 
 import org.greenrobot.eventbus.EventBus;
@@ -40,7 +39,7 @@ public class RecordActivty extends BaseActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mBinding = DataBindingUtil.setContentView(this, R.layout.activity_record_activty);
-        mBinding.record.setOnTouchListener(mRecordTouchListener);
+//        mBinding.record.setOnTouchListener(mRecordTouchListener);
         init();
         mRecordData.state = STATE_PREPAREING;
         mBinding.setHandlers(this);
@@ -67,7 +66,7 @@ public class RecordActivty extends BaseActivity {
             @Override
             public void run() {
                 mBinding.recordView.startPreview();
-
+                mState = STATE_PAUSE;
             }
         },300);
     }
@@ -117,7 +116,7 @@ public class RecordActivty extends BaseActivity {
         if(mState == STATE_RECORDING){
             return;
         }
-        mRecordData.state = STATE_PREPAREING;
+        mRecordData.state = STATE_PAUSE;
         mRecordData.duration = 0;
         mRecordData.ready = false;
         mBinding.recordView.resetRecord();
@@ -133,31 +132,61 @@ public class RecordActivty extends BaseActivity {
 
     }
 
+    public void onFlash(View v) {
+        if(mRecordData.flashMode == RecordData.FLASH_DISABLE_DISABLE){
+            return;
+        }
+
+        if(mRecordData.flashMode == RecordData.FLASH_OFF){
+            mRecordData.flashMode = RecordData.FLASH_ON;
+        }else if(mRecordData.flashMode == RecordData.FLASH_ON){
+            mRecordData.flashMode = RecordData.FLASH_OFF;
+        }
+        mBinding.recordView.setFlashMode(mRecordData.flashMode);
+        mBinding.setData(mRecordData);
+
+    }
+
     public void onSwapCamera(View v) {
         mBinding.recordView.switchCamera();
     }
 
-    private View.OnTouchListener mRecordTouchListener = new View.OnTouchListener() {
-        @Override
-        public boolean onTouch(View v, MotionEvent event) {
-            if (mState == STATE_STOP) {
-                return true;
-            }
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    switchState(STATE_RECORDING);
-                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_s);
-                    break;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_OUTSIDE:
-                case MotionEvent.ACTION_CANCEL:
-                    switchState(STATE_PAUSE);
-                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_n);
-                    break;
-            }
-            return true;
+    public void onRecord(View v){
+        if (mState == STATE_STOP) {
+            return ;
         }
-    };
+        switch (mState) {
+            case STATE_RECORDING:
+                mBinding.record.setImageResource(R.drawable.but_xiaosp_record_n);
+                switchState(STATE_PAUSE);
+                break;
+            case STATE_PAUSE:
+                mBinding.record.setImageResource(R.drawable.but_xiaosp_record_s);
+                switchState(STATE_RECORDING);
+                break;
+        }
+
+    }
+
+//    private View.OnTouchListener mRecordTouchListener = new View.OnTouchListener() {
+//        @Override
+//        public boolean onTouch(View v, MotionEvent event) {
+//
+//            switch (event.getAction()) {
+//                case MotionEvent.ACTION_DOWN:
+//                    switchState(STATE_RECORDING);
+//                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_s);
+//                    break;
+//                case MotionEvent.ACTION_UP:
+//                case MotionEvent.ACTION_OUTSIDE:
+//                case MotionEvent.ACTION_CANCEL:
+//                    switchState(STATE_PAUSE);
+//                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_n);
+//                    break;
+//            }
+//            return true;
+//        }
+//    };
 
     public void switchState(int state){
         if(mState == state){

@@ -16,9 +16,9 @@ import cn.myhug.baobaoplayer.media.AudioRecordSource;
 /**
  * Created by zhengxin on 16/2/21.
  */
-public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback {
+public class RecordView extends FrameLayout implements SurfaceHolder.Callback {
 
-    private static final String TAG = BroadCastView.class.getName();
+    private static final String TAG = RecordView.class.getName();
 
     public static final int BROADCAST_ERROR_OPEN_CAMERA_FAIL = 701;
     public static final int BROADCAST_ERROR_SURFACE_NULL = 702;
@@ -40,7 +40,7 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
     private RenderThread mRenderThread;
 
     // Receives messages from renderer thread.
-    private MainHandler mHandler  = new MainHandler() {
+    private MainHandler mHandler = new MainHandler() {
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
@@ -77,7 +77,6 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
     private SurfaceView mSurfaceView = null;
 
 
-    private Object mSyncObject = new Object();
     private H264Encoder mEncoder = null;
     private Runnable mPreviewStartRunnable = null;
     private IBroadCastErrorCallback mErrorCallback = null;
@@ -96,7 +95,7 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
     private boolean mRequestStart = false;
 
     private boolean isBroadCast = false;
-    private Mp4Muxer mMuxer= new Mp4Muxer();
+    private Mp4Muxer mMuxer = new Mp4Muxer();
     private AudioRecordSource mAudioSource = null;
     private long mTimeStamp = 0;
 
@@ -108,23 +107,23 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
 
     private boolean isZOrderMediaOverlay = false;
 
-    public BroadCastView(Context context) {
+    public RecordView(Context context) {
         super(context);
         init();
     }
 
-    public BroadCastView(Context context, boolean isZOverlay) {
+    public RecordView(Context context, boolean isZOverlay) {
         super(context);
         isZOrderMediaOverlay = isZOverlay;
         init();
     }
 
-    public BroadCastView(Context context, AttributeSet attrs) {
+    public RecordView(Context context, AttributeSet attrs) {
         super(context, attrs);
         init();
     }
 
-    public BroadCastView(Context context, AttributeSet attrs, int defStyleAttr) {
+    public RecordView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init();
     }
@@ -140,7 +139,6 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
         sh.addCallback(this);
 
 
-
     }
 
     public void setBroadCastErrorCallback(IBroadCastErrorCallback callback) {
@@ -150,32 +148,31 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
     // 现在所有的调用都在主线程中，所以说加锁的作用理论上没有作用。
     private void initEncoder() {
         if (mEncoder == null) {
-            synchronized (mSyncObject) {
-                if (null == mEncoder) {
-                    H264Encoder encoder = new H264Encoder();
-                    H264EncodeConfig encodeConfig = new H264EncodeConfig();
+            if (null == mEncoder) {
+                H264Encoder encoder = new H264Encoder();
+                H264EncodeConfig encodeConfig = new H264EncodeConfig();
 
-                    int errcode = encoder.configure(encodeConfig);
+                int errcode = encoder.configure(encodeConfig);
 
-                    if (0 == errcode) {
-                        encoder.setMuxer(mMuxer);
-                        encoder.start();
+                if (0 == errcode) {
+                    encoder.setMuxer(mMuxer);
+                    encoder.start();
 
-                        mAudioSource = new AudioRecordSource();
-                        mAudioSource.prepare();
-                        mAudioSource.setMuxer(mMuxer);
-                        mAudioSource.startRecord();
-                        mEncoder = encoder;
-                        TimeStampGenerator.sharedInstance().reset();
+                    mAudioSource = new AudioRecordSource();
+                    mAudioSource.prepare();
+                    mAudioSource.setMuxer(mMuxer);
+                    mAudioSource.startRecord();
+                    mEncoder = encoder;
+                    TimeStampGenerator.sharedInstance().reset();
 
-                    } else {
-                        if (mErrorCallback != null) {
-                            mErrorCallback.onError(errcode);
-                        }
+                } else {
+                    if (mErrorCallback != null) {
+                        mErrorCallback.onError(errcode);
                     }
                 }
             }
         }
+
     }
 
 
@@ -248,7 +245,6 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
             mEncoder.stop();
             mEncoder = null;
         }
-
 
 
         if (mRenderThread != null) {
@@ -344,10 +340,10 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
 
     public void resumeRecord() {
         TimeStampGenerator.sharedInstance().start();
-        if(mRenderThread!=null){
+        if (mRenderThread != null) {
             mRenderThread.resumeRecord();
         }
-        if(mAudioSource!=null){
+        if (mAudioSource != null) {
             mAudioSource.resumeRecord();
         }
 
@@ -355,10 +351,10 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
 
     public void pauseRecord() {
         TimeStampGenerator.sharedInstance().pause();
-        if(mRenderThread!=null){
+        if (mRenderThread != null) {
             mRenderThread.pauseRecord();
         }
-        if(mAudioSource!=null){
+        if (mAudioSource != null) {
             mAudioSource.pauseRecord();
         }
     }
@@ -369,25 +365,29 @@ public class BroadCastView extends FrameLayout implements SurfaceHolder.Callback
         postDelayed(new Runnable() {
             @Override
             public void run() {
-                if(mEncoder!=null){
+                if (mEncoder != null) {
                     mEncoder.stop();
                 }
-                if(mAudioSource!=null){
+                if (mAudioSource != null) {
                     mAudioSource.stop();
                 }
             }
-        },20);
+        }, 20);
 
     }
 
     public void resetRecord() {
         TimeStampGenerator.sharedInstance().reset();
-        if(mEncoder!=null){
+        if (mEncoder != null) {
             mEncoder.reset();
         }
         mMuxer.reset();
-        if(mAudioSource!=null){
+        if (mAudioSource != null) {
             mAudioSource.reset();
         }
+    }
+
+    public void setFlashMode(int flashMode) {
+        mRenderThread.switchFlash(flashMode);
     }
 }

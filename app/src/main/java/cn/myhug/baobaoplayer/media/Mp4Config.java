@@ -9,7 +9,7 @@ import android.media.MediaCodecList;
 
 public class Mp4Config {
     public static final int VIDEO_WIDTH = 480;
-    public static final int VIDEO_HEIGHT = 640;
+    public static final int VIDEO_HEIGHT = 600;
     public static final int VIDEO_BITRATE = 1000000;
     public static final int VIDEO_I_FRAME_INTERVAL = 10;
     public static final int VIDEO_FRAME_RATE = 24;
@@ -20,6 +20,7 @@ public class Mp4Config {
             MediaCodecInfo.CodecProfileLevel.AACObjectHE;
     public static final int OUTPUT_AUDIO_SAMPLE_RATE_HZ = 44100; // Must match the input stream.
 
+    public static final int MAX_LEN = 30*1000*1000;
 
     public static MediaCodecInfo selectCodec(String mimeType) {
         int numCodecs = MediaCodecList.getCodecCount();

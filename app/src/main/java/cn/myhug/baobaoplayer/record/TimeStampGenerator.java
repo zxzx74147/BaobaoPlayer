@@ -1,5 +1,7 @@
 package cn.myhug.baobaoplayer.record;
 
+import android.util.Log;
+
 /**
  * Created by zhengxin on 2016/11/10.
  * 时间戳生成器
@@ -25,14 +27,16 @@ public class TimeStampGenerator {
     }
 
     public void reset() {
-        mStartTimeStamp = 0;
+        mStartTimeStamp = System.nanoTime();
         mOffsetTimeStamp = 0;
         mResult = 0;
     }
 
     public void start() {
         mStartTimeStamp = System.nanoTime();
-        mOffsetTimeStamp = mResult;
+        mOffsetTimeStamp = mResult>0? mResult+89694000:mResult;
+        mIsFirstVideo = true;
+        Log.i("TimeStampGenerator offset=",""+mOffsetTimeStamp);
     }
 
     public void pause() {

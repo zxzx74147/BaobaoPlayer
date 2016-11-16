@@ -29,6 +29,7 @@ public class RenderHandler extends Handler {
     private static final int MSG_ENCODER_AVAILABLE = 10;
     private static final int MSG_SWITCH_CAMERA = 11;
     private static final int MSG_ENCODER_AVAILABLE2 = 12;
+    private static final int MSG_SWITCH_FLASH = 13;
 
     // This shouldn't need to be a weak ref, since we'll go away when the Looper quits,
     // but no real harm in it.
@@ -142,6 +143,10 @@ public class RenderHandler extends Handler {
         sendMessage(obtainMessage(MSG_SWITCH_CAMERA, 0));
     }
 
+    public void switchFlash(int mode) {
+        sendMessage(obtainMessage(MSG_SWITCH_FLASH, mode,0));
+    }
+
     /**
      * Sends the "position" message.  Sets the position of the rect.
      * <p/>
@@ -208,6 +213,9 @@ public class RenderHandler extends Handler {
                 break;
             case MSG_SWITCH_CAMERA:
                 renderThread.switchCamera();
+                break;
+            case MSG_SWITCH_FLASH:
+                renderThread.switchFlash(msg.arg1);
                 break;
             default:
                 throw new RuntimeException("unknown message " + what);

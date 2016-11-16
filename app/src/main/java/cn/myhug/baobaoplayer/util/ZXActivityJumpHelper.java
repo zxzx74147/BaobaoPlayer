@@ -24,8 +24,10 @@ public class ZXActivityJumpHelper {
 
     public static void startActivity(Context context, Class<? extends BaseActivity> T, IntentData data) {
         Intent intent = new Intent(context, T);
-        intent.putExtra(INTENT_DATA, data);
-        intent.setData(data.uri);
+        if(data!=null) {
+            intent.putExtra(INTENT_DATA, data);
+            intent.setData(data.uri);
+        }
         context.startActivity(intent);
     }
 

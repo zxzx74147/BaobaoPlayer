@@ -14,6 +14,11 @@ import cn.myhug.baobaoplayer.widget.ZXImageView;
  */
 public class ImageBindUtil {
 
+    @BindingAdapter({"android:src"})
+    public static void setImageViewResource(ImageView imageView, int resource) {
+        imageView.setImageResource(resource);
+    }
+
     @BindingAdapter({"img_url"})
     public static void loadImage(ImageView imageView, String url) {
         if (imageView == null) {

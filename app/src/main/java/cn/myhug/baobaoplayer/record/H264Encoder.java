@@ -38,7 +38,7 @@ public class H264Encoder {
 
         try {
 
-            mMediaCodec = MediaCodec.createByCodecName(mConfig.encoderName); // 11
+            mMediaCodec = MediaCodec.createEncoderByType("video/avc"); // 11
             mMediaFormat = MediaFormat.createVideoFormat(MIME, mConfig.videoW, mConfig.videoH);
             mMediaFormat.setInteger(MediaFormat.KEY_BIT_RATE, mConfig.videoBitrate);
             mMediaFormat.setInteger(MediaFormat.KEY_FRAME_RATE, mConfig.videoFramerate);

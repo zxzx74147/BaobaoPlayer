@@ -22,7 +22,7 @@ import cn.myhug.baobaoplayer.util.TimeStampLogUtil;
 public class MediaMixer {
 
     private static final String TAG = "MediaMixer";
-    private static final boolean VERBOSE = false;           // lots of logging
+    private static final boolean VERBOSE = true;           // lots of logging
 
     private Handler mHandler = null;
     private static final int MSG_PERCENT = 1;
@@ -178,10 +178,14 @@ public class MediaMixer {
             if (!inputDone) {
                 ByteBuffer inputBuf = null;
                 mTrackIndex = mDecoder.extractor.getSampleTrackIndex();
+                if(mDecoder.extractor.getSampleTime()>Mp4Config.MAX_LEN){
+                    mTrackIndex = -1;
+                }
                 if (mTrackIndex == mDecoder.mDecodeTrackVideoIndex) {
                     TimeStampLogUtil.logTimeStamp("video start====");
                     inputIndex = mDecoder.mVideoDecoder.dequeueInputBuffer(TIMEOUT_USEC);
                     inputBuf = mVideoDecoderInputBuffers[inputIndex];
+
                 } else if (mTrackIndex == mDecoder.mDecodeTrackAudioIndex) {
                     TimeStampLogUtil.logTimeStamp("audio start====");
                     inputIndex = mDecoder.mAudioDecoder.dequeueInputBuffer(TIMEOUT_USEC);
@@ -269,6 +273,7 @@ public class MediaMixer {
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                         if (VERBOSE) Log.d(TAG, "output EOS");
                         mVideoOutputDone = true;
+                        mEncoder.drainVideoEncoder(true);
                     }
 
 
@@ -280,10 +285,11 @@ public class MediaMixer {
                         mDecoder.outputSurface.makeCurrent(1);
                         mDecoder.outputSurface.awaitNewImage();
                         mDecoder.outputSurface.drawImage(true);
-
+                        mDecoder.outputSurface.setPresentationTime(info.presentationTimeUs*1000);
+                        if(VERBOSE) Log.d(TAG,"timestamp="+info.presentationTimeUs);
                         mEncoder.drainVideoEncoder(false);
                         TimeStampLogUtil.logTimeStamp("encoder drainVideoEncoder====");
-                        mDecoder.outputSurface.setPresentationTime(computePresentationTimeNsec(decodeCount));
+//                        mDecoder.outputSurface.setPresentationTime(computePresentationTimeNsec(decodeCount));
                         mDecoder.outputSurface.swapBuffers();
 
                         decodeCount++;
@@ -313,6 +319,7 @@ public class MediaMixer {
                     if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                         if (VERBOSE) Log.d(TAG, "output EOS");
                         mAudioOutputDone = true;
+                        mEncoder.drainAudioEncoder(true, null, info);
                     }
                     if(mAudioDecoder.hasSource()) {
                         int length = mAudioDecoder.pumpAudioBuffer(info.size);
@@ -339,18 +346,12 @@ public class MediaMixer {
             }
         }
         TimeStampLogUtil.logTimeStamp("game over ====");
-        mEncoder.drainAudioEncoder(true, null, info);
-        mEncoder.drainVideoEncoder(true);
+
+
         mHandler.sendEmptyMessage(MSG_DONE);
 //        int numSaved = (MAX_FRAMES < decodeCount) ? MAX_FRAMES : decodeCount;
 //        Log.d(TAG, "Saving " + numSaved + " frames took " +
 //                (frameSaveTime / numSaved / 1000) + " us per frame");
-    }
-
-
-    private static long computePresentationTimeNsec(int frameIndex) {
-        final long ONE_BILLION = 1000000000;
-        return frameIndex * ONE_BILLION / 30;
     }
 
 

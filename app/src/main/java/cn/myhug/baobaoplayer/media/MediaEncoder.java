@@ -21,7 +21,7 @@ import static cn.myhug.baobaoplayer.media.Mp4Config.MIME_TYPE_AUDIO;
 public class MediaEncoder {
 
     private static final String TAG = "MediaMixer";
-    private static final boolean VERBOSE = false;           // lots of logging
+    private static final boolean VERBOSE = true;           // lots of logging
     private static final String MIME_TYPE = "video/avc";    // H.264 Advanced Video Coding
     private static final int WIDTH = Mp4Config.VIDEO_WIDTH;
     private static final int HEIGHT = Mp4Config.VIDEO_HEIGHT;
@@ -187,11 +187,11 @@ public class MediaEncoder {
                     // The codec config data was pulled out and fed to the muxer when we got
                     // the INFO_OUTPUT_FORMAT_CHANGED status.  Ignore it.
                     if (VERBOSE) Log.d(TAG, "ignoring BUFFER_FLAG_CODEC_CONFIG");
-                    MediaFormat outputAudioFormat =
-                            MediaFormat.createAudioFormat(
-                                    MIME_TYPE_AUDIO, Mp4Config.OUTPUT_AUDIO_SAMPLE_RATE_HZ,
-                                    2);
-                    outputAudioFormat.setByteBuffer("csd-0", encodedData);
+//                    MediaFormat outputAudioFormat =
+//                            MediaFormat.createAudioFormat(
+//                                    MIME_TYPE_AUDIO, Mp4Config.OUTPUT_AUDIO_SAMPLE_RATE_HZ,
+//                                    2);
+//                    outputAudioFormat.setByteBuffer("csd-0", encodedData);
 
                     mBufferInfo.size = 0;
                 }
@@ -281,9 +281,9 @@ public class MediaEncoder {
                     // the INFO_OUTPUT_FORMAT_CHANGED status.  Ignore it.
                     if (VERBOSE) Log.d(TAG, "ignoring BUFFER_FLAG_CODEC_CONFIG");
 
-                    MediaFormat format =
-                            MediaFormat.createVideoFormat(MIME_TYPE, WIDTH, HEIGHT);
-                    format.setByteBuffer("csd-0", encodedData);
+//                    MediaFormat format =
+//                            MediaFormat.createVideoFormat(MIME_TYPE, WIDTH, HEIGHT);
+//                    format.setByteBuffer("csd-0", encodedData);
 
                     mBufferInfo.size = 0;
                 }

@@ -40,6 +40,7 @@ public class AudioRecordSource {
     private MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
     private volatile boolean mIsStop = false;
     private Mp4Muxer mMuxer = null;
+    private long mLastTime = 0;
 
 
 
@@ -136,7 +137,8 @@ public class AudioRecordSource {
 //                        if (VERBOSE) Log.d(TAG, "nano time="+System.nanoTime());
 
                         if(mIsRecording) {
-                            if (VERBOSE) Log.d(TAG, "time stamp="+info.presentationTimeUs);
+//                            if (VERBOSE)
+                                Log.d(TAG, "time stamp="+info.presentationTimeUs);
                             drainAudioEncoder(false, mByteBuffer, info);
                             info.presentationTimeUs = TimeStampGenerator.sharedInstance().getAudioStamp();
                         }
@@ -196,6 +198,11 @@ public class AudioRecordSource {
             int encoderStatus = mAudioEncoder.dequeueOutputBuffer(mBufferInfo, TIMEOUT_USEC);
 
             if (VERBOSE) Log.d(TAG, "index="+encoderStatus+"|mBufferInfo.time="+mBufferInfo.presentationTimeUs);
+            //TODO 时间戳为啥会倒退！！！！！费解
+            if(mBufferInfo.presentationTimeUs<mLastTime){
+                mBufferInfo.presentationTimeUs = mLastTime +10000;
+            }
+            mLastTime = mBufferInfo.presentationTimeUs;
             TimeStampLogUtil.logTimeStamp(1, "dequeueOutputBuffer====");
             if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                 // no output available yet
