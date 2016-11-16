@@ -261,7 +261,7 @@ public class VideoEditActivity extends BaseActivity {
         mMuxter = new MediaMixer();
         mMuxter.setInputUri(uri);
         mMuxter.setOutputFile(file);
-        mMuxter.setMixAudio(Uri.fromFile(FileUtil.getFile("Twinkle.mp3")));
+//        mMuxter.setMixAudio(Uri.fromFile(FileUtil.getFile("Twinkle.mp3")));
         mMuxter.setFilter(MagicFilterFactory.initFilters(mLastFilter.mType));
         mMuxter.setListener(mEncodeListener);
 

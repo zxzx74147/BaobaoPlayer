@@ -30,12 +30,15 @@ public class TimeStampGenerator {
         mStartTimeStamp = System.nanoTime();
         mOffsetTimeStamp = 0;
         mResult = 0;
+        mIsFirstVideo = true;
     }
 
     public void start() {
         mStartTimeStamp = System.nanoTime();
         mOffsetTimeStamp = mResult>0? mResult+89694000:mResult;
-        mIsFirstVideo = true;
+        if(mResult ==0){
+            mIsFirstVideo = true;
+        }
         Log.i("TimeStampGenerator offset=",""+mOffsetTimeStamp);
     }
 

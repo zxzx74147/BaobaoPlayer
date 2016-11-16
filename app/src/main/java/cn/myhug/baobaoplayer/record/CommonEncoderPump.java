@@ -87,7 +87,7 @@ public class CommonEncoderPump {
 
 
                             if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
-                                mBufferInfo.size = 0;
+//                                mBufferInfo.size = 0;
                             }
                             if ((mBufferInfo.flags & BUFFER_FLAG_SYNC_FRAME) != 0) {
                                 if (VERBOSE)  Log.d(TAG, "get a key frame & size: " + mBufferInfo.size+"|"+mMuxer.isStarted());

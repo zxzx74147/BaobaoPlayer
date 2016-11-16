@@ -44,11 +44,16 @@ public class AudioDecoder {
 
     void prepare() throws IOException {
         extractor = new MediaExtractor();
-        if (fileDescriptor != null) {
-            extractor.setDataSource(fileDescriptor);
-        } else if (uri != null) {
-            extractor.setDataSource(PlayerApplication.sharedInstance(), uri, null);
-        } else {
+        try {
+            if (fileDescriptor != null) {
+                extractor.setDataSource(fileDescriptor);
+            } else if (uri != null) {
+                extractor.setDataSource(PlayerApplication.sharedInstance(), uri, null);
+            } else {
+                extractor = null;
+                return;
+            }
+        }catch (Exception e){
             extractor = null;
             return;
         }

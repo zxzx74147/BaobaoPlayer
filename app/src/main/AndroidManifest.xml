@@ -34,9 +34,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".PlayerActivity" />
-        <activity android:name=".PlayerVideoActivity" />
-        <activity android:name=".record.RecordActivty" />
-        <activity android:name=".edit.VideoEditActivity"/>
+        <activity android:name=".PlayerVideoActivity" android:screenOrientation="portrait"/>
+        <activity android:name=".record.RecordActivty" android:screenOrientation="portrait"/>
+        <activity android:name=".edit.VideoEditActivity" android:screenOrientation="portrait"/>
     </application>
 
 </manifest>

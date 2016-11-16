@@ -118,6 +118,8 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
     protected int textureId = OpenGlUtils.NO_TEXTURE;
 
 
+
+
     public BBFilterVideoView(Context context) {
         super(context);
         initVideoView();
@@ -277,9 +279,17 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
         // called start() previously
         release(false);
         try {
-//            mMediaPlayer = new MediaPlayer();
-//            mMediaPlayer = new IjkMediaPlayer(mContext);
+//
+
+//            mMediaPlayer = new IjkMediaPlayer();
+//            IjkMediaPlayer mediaPlayer = (IjkMediaPlayer) mMediaPlayer;
+//            mediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 1);
+//            mediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1);
+
+
             mMediaPlayer = new IjkExoMediaPlayer(mContext);
+
+//            mMediaPlayer = new IjkExoMediaPlayer(mContext);
             mMediaPlayer.setOnPreparedListener(mPreparedListener);
             mMediaPlayer.setOnVideoSizeChangedListener(mSizeChangedListener);
             mMediaPlayer.setOnCompletionListener(mCompletionListener);
@@ -834,6 +844,7 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
 
     private SurfaceTexture.OnFrameAvailableListener mDecodeFrameAvaliableListener = new SurfaceTexture.OnFrameAvailableListener() {
         public void onFrameAvailable(SurfaceTexture texture) {
+            mWindowSurface.makeCurrent();
             mDecodeSurfaceTexture.updateTexImage();
             draw();
         }
@@ -854,6 +865,7 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
         mSurfaceFilter.setTextureTransformMatrix(mtx);
         if (mImageFilterBack != null) {
             mImageFilter.destroy();
+            mImageFilterBack.init();
             mImageFilter = mImageFilterBack;
             mImageFilterBack = null;
 
@@ -865,7 +877,6 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
             mImageFilter.onDrawFrame(id, mGLCubeBuffer, mGLTextureBuffer);
         }
         mWindowSurface.swapBuffers();
-
         GlUtil.checkGlError("draw done");
 
     }
@@ -873,7 +884,6 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
     @Override
     public void setFilter(GPUImageFilter filter) {
         mImageFilterBack = filter;
-        mImageFilterBack.init();
         mImageFilterBack.onDisplaySizeChanged(mWindowSurfaceWidth, mWindowSurfaceHeight);
         mImageFilterBack.onInputSizeChanged(mVideoWidth, mVideoHeight);
     }

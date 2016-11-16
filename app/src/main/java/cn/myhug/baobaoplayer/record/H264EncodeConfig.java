@@ -18,8 +18,8 @@ public class H264EncodeConfig {
 
     public static int DEFAULT_WIDTH = Mp4Config.VIDEO_WIDTH;
     public static int DEFAULT_HEIGHT = Mp4Config.VIDEO_HEIGHT;
-    public static int DEFAULT_FRAMERATE = 25;
-    public static int DEFAULT_VIDEO_BITRATE = 800 * 1024;
+    public static int DEFAULT_FRAMERATE = 24;
+    public static int DEFAULT_VIDEO_BITRATE = 1200 * 1024;
 
 
     public static int ENCODE_H264_MEDIACODEC = 0;
