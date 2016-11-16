@@ -56,9 +56,18 @@
             android:layout_height="0dip"
             android:layout_weight="1">
 
+            <!--<com.devbrackets.android.exomedia.ui.widget.EMVideoView-->
+                <!--android:id="@+id/exo_player_view"-->
+                <!--android:layout_centerHorizontal="true"-->
+                <!--android:visibility="gone"-->
+                <!--android:layout_centerVertical="true"-->
+                <!--android:layout_width="match_parent"-->
+                <!--android:layout_height="match_parent"/>-->
+
             <cn.myhug.baobaoplayer.widget.BBFilterVideoView
                 android:id="@+id/video_view"
                 android:layout_width="match_parent"
+
                 android:layout_height="match_parent"
                 android:layout_centerHorizontal="true"
                 android:layout_centerVertical="true" />

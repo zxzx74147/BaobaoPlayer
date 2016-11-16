@@ -49,6 +49,7 @@ public class VideoEditActivity extends BaseActivity {
     private MaterialDialog mProgressDialog = null;
     private  Uri mSource = null;
 
+
     private int mDuration = 0;
 
 
@@ -65,14 +66,44 @@ public class VideoEditActivity extends BaseActivity {
 
 
 
+//        mBinding.videoView.postDelayed(new Runnable() {
+//            @Override
+//            public void run() {
+//
+//
+////                mBinding.videoView.setVideoURI(Uri.parse("http://113.200.90.21/vkp.tc.qq.com/x0022ku30tr.p212.1.mp4?sdtfrom=v1010&amp;guid=ded6226f902db8e568f3832327f29699&amp;vkey=DCDDCE109DC1BCD5A1127B7194758E3FDA270C765F623DC0FA0B7198202AC37119DFAA2BA25192B4D42239BEE63F969981DA648451C30B1A1658E0CDCACFE42714D9BE8148CE23E514B820C70AAF90E51C14BAD86DEB59B0"));
+////                mBinding.exoPlayerView.setVideoURI(mSource);
+////                mBinding.videoView.setVideoURI(Uri.parse(  "http://pws.myhug.cn/video/w/9/a37230e4540c14ebf4396ff553424420"));
+//                mBinding.exoPlayerView.setOnPreparedListener(new OnPreparedListener() {
+//                    @Override
+//                    public void onPrepared() {
+//                        mBinding.exoPlayerView.start();
+//                    }
+//                });
+//                String url = "http://pws.myhug.cn/video/w/9/a37230e4540c14ebf4396ff553424420";
+//
+//                HttpProxyCacheServer proxy = PlayerApplication.sharedInstance().getProxy(VideoEditActivity.this);
+//                String proxyUrl = proxy.getProxyUrl(url);
+//
+//
+//                mBinding.exoPlayerView.setVideoURI(Uri.parse(proxyUrl));
+////                mBinding.exoPlayerView.start();
+//                mBinding.videoView.seekTo(stopPosition);
+//                mDuration = mBinding.videoView.getDuration();
+//                mDuration = Math.min(MAX_LEN, mDuration);
+//                initSeekBar();
+//            }
+//        }, 300);
+
         mBinding.videoView.postDelayed(new Runnable() {
             @Override
             public void run() {
-
-//                mBinding.videoView.setVideoURI(Uri.parse("http://113.200.90.21/vkp.tc.qq.com/x0022ku30tr.p212.1.mp4?sdtfrom=v1010&amp;guid=ded6226f902db8e568f3832327f29699&amp;vkey=DCDDCE109DC1BCD5A1127B7194758E3FDA270C765F623DC0FA0B7198202AC37119DFAA2BA25192B4D42239BEE63F969981DA648451C30B1A1658E0CDCACFE42714D9BE8148CE23E514B820C70AAF90E51C14BAD86DEB59B0"));
+//                String url = "http://pws.myhug.cn/video/w/9/a37230e4540c14ebf4396ff553424420";
+//
+//                HttpProxyCacheServer proxy = PlayerApplication.sharedInstance().getProxy(VideoEditActivity.this);
+//                String proxyUrl = proxy.getProxyUrl(url);
                 mBinding.videoView.setVideoURI(mSource);
-//                mBinding.videoView.setVideoURI(Uri.parse(  "http://pws.myhug.cn/video/w/9/a37230e4540c14ebf4396ff553424420"));
-                       mBinding.videoView.start();
+                mBinding.videoView.start();
                 mBinding.videoView.seekTo(stopPosition);
                 mDuration = mBinding.videoView.getDuration();
                 mDuration = Math.min(MAX_LEN, mDuration);
@@ -352,6 +383,9 @@ public class VideoEditActivity extends BaseActivity {
                     }
                 }).start();
     }
+
+
+
 
 
 }

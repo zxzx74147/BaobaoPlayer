@@ -746,6 +746,8 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
     }
 
 
+
+
     private SurfaceTexture mDecodeSurfaceTexture;
 
     // Orthographic projection matrix.
@@ -844,7 +846,7 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
 
     private SurfaceTexture.OnFrameAvailableListener mDecodeFrameAvaliableListener = new SurfaceTexture.OnFrameAvailableListener() {
         public void onFrameAvailable(SurfaceTexture texture) {
-            mWindowSurface.makeCurrent();
+//            mWindowSurface.makeCurrent();
             mDecodeSurfaceTexture.updateTexImage();
             draw();
         }
