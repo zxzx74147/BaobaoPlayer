@@ -35,6 +35,14 @@ public class MainActivity extends BaseActivity {
             }
         });
 
+        mBinding.playVideo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MainActivity.this, PlayerActivity.class);
+                startActivity(intent);
+            }
+        });
+
 //        mBinding.startVideo.setOnClickListener(new View.OnClickListener() {
 //            @Override
 //            public void onClick(View view) {

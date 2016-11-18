@@ -72,6 +72,7 @@ dependencies {
     compile 'com.liulishuo.filedownloader:library:1.3.0'
     compile 'com.devbrackets.android:exomedia:3.1.0'
     compile 'com.danikula:videocache:2.6.3'
+    compile 'fm.jiecao:jiecaovideoplayer:4.8.2'
 
 //    compile 'jp.co.cyberagent.android.gpuimage:gpuimage-library:1.4.1'
 }

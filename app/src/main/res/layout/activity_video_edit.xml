@@ -30,6 +30,19 @@
                 android:onClick="@{() -> handler.finish()}"
                 android:text="@string/back" />
 
+            <Button
+                android:id="@+id/stop"
+                android:gravity="center"
+                android:layout_toRightOf="@+id/back"
+                android:layout_width="wrap_content"
+                android:textColor="@color/white"
+                android:drawableLeft="@drawable/md_nav_back"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:onClick="@{handler.onStop}"
+                android:text="STOP" />
+
+
             <TextView
                 android:text="@string/edit_video"
                 android:textSize="@dimen/default_size_32"
@@ -37,6 +50,17 @@
                 android:layout_width="wrap_content"
                 android:textColor="@color/white"
                 android:layout_height="wrap_content" />
+            <Button
+                android:id="@+id/play"
+                android:gravity="center"
+                android:layout_width="wrap_content"
+                android:layout_toLeftOf="@+id/send"
+                android:textColor="@color/white"
+                android:drawableLeft="@drawable/md_nav_back"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:onClick="@{handler.onPlay}"
+                android:text="PLAY" />
             <TextView
                 android:id="@+id/send"
                 android:layout_width="wrap_content"

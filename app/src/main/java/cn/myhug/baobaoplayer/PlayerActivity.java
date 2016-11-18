@@ -7,6 +7,8 @@ import android.os.Handler;
 
 import cn.myhug.baobaoplayer.databinding.ActivityPlayerBinding;
 import cn.myhug.baobaoplayer.utils.MagicParams;
+import fm.jiecao.jcvideoplayer_lib.JCVideoPlayer;
+import fm.jiecao.jcvideoplayer_lib.JCVideoPlayerStandard;
 
 public class PlayerActivity extends BaseActivity {
 
@@ -14,7 +16,7 @@ public class PlayerActivity extends BaseActivity {
 
     private boolean isForcePause = false;
     private boolean isForcePause2 = false;
-    ActivityPlayerBinding mBinding;
+    private ActivityPlayerBinding mBinding;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -25,8 +27,9 @@ public class PlayerActivity extends BaseActivity {
         mHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                mBinding.videoView.setVideoURI(uri);
-                mBinding.videoView.start();
+                mBinding.player.setUp("http://2449.vod.myqcloud.com/2449_22ca37a6ea9011e5acaaf51d105342e3.f20.mp4", JCVideoPlayerStandard.SCREEN_LAYOUT_LIST, "123");
+//                mBinding.videoView.setVideoURI(Uri.parse("http://pws.myhug.cn/video/w/9/54308d9ee7170e98e3243a9514037500"));
+//                mBinding.videoView.start();
 
 //                mBinding.videoView2.setVideoURI(uri);
 //                mBinding.videoView2.start();
@@ -38,10 +41,8 @@ public class PlayerActivity extends BaseActivity {
     @Override
     public void onPause() {
         super.onPause();
-        if (mBinding.videoView.canPause()) {
-            isForcePause = true;
-            mBinding.videoView.pause();
-        }
+//        mBinding.videoView.onPause();
+        JCVideoPlayer.releaseAllVideos();
 
 
     }
@@ -49,10 +50,7 @@ public class PlayerActivity extends BaseActivity {
     @Override
     public void onResume() {
         super.onResume();
-        if (isForcePause && !mBinding.videoView.isPlaying()) {
-            isForcePause = false;
-            mBinding.videoView.resume();
-        }
+//
 
 
     }
@@ -60,6 +58,5 @@ public class PlayerActivity extends BaseActivity {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        mBinding.videoView.stopPlayback();
     }
 }

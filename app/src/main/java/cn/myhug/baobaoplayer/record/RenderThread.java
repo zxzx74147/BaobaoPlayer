@@ -48,7 +48,7 @@ public class RenderThread extends Thread implements
     private boolean hasShow = false;
     private int mBeauty = 0;
 
-    private static final String TAG = "RenderThread";
+    private static final String TAG = "PlayerRenderThread";
     // Object must be created on render thread to get correct Looper, but is used from
     // UI thread, so we need to declare it volatile to ensure the UI thread sees a fully
     // constructed object.
@@ -273,6 +273,14 @@ public class RenderThread extends Thread implements
 
 
     public void setEncoderSurface(Surface surface) {
+        if(mCodecWindowSurface!=null){
+            try {
+                mCodecWindowSurface.release();
+                mCodecWindowSurface = null;
+            }catch (Exception e){
+
+            }
+        }
         try {
             mCodecWindowSurface = new WindowSurface(mEglCore, surface, true);
         } catch (IllegalArgumentException e) {
@@ -348,8 +356,8 @@ public class RenderThread extends Thread implements
      * be called.
      */
     public void surfaceChanged(int width, int height) {
-        Log.d(TAG, "RenderThread surfaceChanged " + width + " x " + height);
-        Log.d(TAG, "RenderThread mWindowSurface " + mWindowSurfaceWidth + " x " + mWindowSurfaceHeight);
+        Log.d(TAG, "PlayerRenderThread surfaceChanged " + width + " x " + height);
+        Log.d(TAG, "PlayerRenderThread mWindowSurface " + mWindowSurfaceWidth + " x " + mWindowSurfaceHeight);
         if (mWindowSurfaceHeight > height || mWindowSurfaceWidth > width) {
             mYOffset = mWindowSurfaceHeight - height;
 
@@ -367,7 +375,7 @@ public class RenderThread extends Thread implements
     public void surfaceDestroyed() {
         // In practice this never appears to be called -- the activity is always paused
         // before the surface is destroyed.  In theory it could be called though.
-        Log.d(TAG, "RenderThread surfaceDestroyed");
+        Log.d(TAG, "PlayerRenderThread surfaceDestroyed");
 //        releaseGl();
         releaseWindowSurface();
     }

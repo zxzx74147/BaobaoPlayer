@@ -44,6 +44,7 @@ public class RecordActivty extends BaseActivity {
         mRecordData.state = STATE_PREPAREING;
         mBinding.setHandlers(this);
         EventBus.getDefault().register(this);
+        TimeStampGenerator.sharedInstance().reset();
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -114,12 +115,13 @@ public class RecordActivty extends BaseActivity {
 
     public void onDelete(View v) {
         if(mState == STATE_RECORDING){
+            switchState(STATE_PAUSE);
             return;
         }
-        mRecordData.state = STATE_PAUSE;
         mRecordData.duration = 0;
         mRecordData.ready = false;
         mBinding.recordView.resetRecord();
+        mBinding.progressBar.setProgress(0);
 
     }
 
@@ -136,7 +138,6 @@ public class RecordActivty extends BaseActivity {
         if(mRecordData.flashMode == RecordData.FLASH_DISABLE_DISABLE){
             return;
         }
-
         if(mRecordData.flashMode == RecordData.FLASH_OFF){
             mRecordData.flashMode = RecordData.FLASH_ON;
         }else if(mRecordData.flashMode == RecordData.FLASH_ON){
@@ -168,25 +169,6 @@ public class RecordActivty extends BaseActivity {
 
     }
 
-//    private View.OnTouchListener mRecordTouchListener = new View.OnTouchListener() {
-//        @Override
-//        public boolean onTouch(View v, MotionEvent event) {
-//
-//            switch (event.getAction()) {
-//                case MotionEvent.ACTION_DOWN:
-//                    switchState(STATE_RECORDING);
-//                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_s);
-//                    break;
-//                case MotionEvent.ACTION_UP:
-//                case MotionEvent.ACTION_OUTSIDE:
-//                case MotionEvent.ACTION_CANCEL:
-//                    switchState(STATE_PAUSE);
-//                    mBinding.record.setImageResource(R.drawable.but_xiaosp_record_n);
-//                    break;
-//            }
-//            return true;
-//        }
-//    };
 
     public void switchState(int state){
         if(mState == state){

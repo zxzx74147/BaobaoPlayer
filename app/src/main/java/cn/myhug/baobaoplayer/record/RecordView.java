@@ -289,7 +289,7 @@ public class RecordView extends FrameLayout implements SurfaceHolder.Callback {
             //
             // Chances are good that the surface will be destroyed before the activity is
             // unpaused, but we track it anyway.  If the activity is un-paused and we start
-            // the RenderThread, the SurfaceHolder will be passed in right after the thread
+            // the PlayerRenderThread, the SurfaceHolder will be passed in right after the thread
             // is created.
             Log.d(TAG, "render thread not running");
         }
@@ -320,7 +320,7 @@ public class RecordView extends FrameLayout implements SurfaceHolder.Callback {
 
     @Override   // SurfaceHolder.Callback
     public void surfaceDestroyed(SurfaceHolder holder) {
-        // In theory we should tell the RenderThread that the surface has been destroyed.
+        // In theory we should tell the PlayerRenderThread that the surface has been destroyed.
         if (mRenderThread != null) {
             RenderHandler rh = mRenderThread.getHandler();
             rh.sendSurfaceDestroyed();
@@ -381,9 +381,14 @@ public class RecordView extends FrameLayout implements SurfaceHolder.Callback {
         if (mEncoder != null) {
             mEncoder.reset();
         }
-        mMuxer.reset();
-        if (mAudioSource != null) {
+
+        if(mAudioSource!=null){
             mAudioSource.reset();
+        }
+        mMuxer.reset();
+        RenderHandler rh = mRenderThread.getHandler();
+        if(rh!=null){
+            rh.sendEncoderAvailable(mEncoder.getEncoderSurface());
         }
     }
 

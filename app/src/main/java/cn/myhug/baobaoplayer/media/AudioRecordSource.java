@@ -25,7 +25,7 @@ public class AudioRecordSource {
 
     private static final String TAG = "AudioRecordSource";
     private static final int TIMEOUT_USEC = 10000;
-    private static final boolean VERBOSE = false;
+    private static final boolean VERBOSE = true;
     private int frequence = Mp4Config.OUTPUT_AUDIO_SAMPLE_RATE_HZ; //录制频率，单位hz.这里的值注意了，写的不好，可能实例化AudioRecord对象的时候，会出错。我开始写成11025就不行。这取决于硬件设备
     private int channelConfig = AudioFormat.CHANNEL_IN_MONO;
     private int audioEncoding = AudioFormat.ENCODING_PCM_16BIT;
@@ -36,16 +36,16 @@ public class AudioRecordSource {
 
     private Thread mRecordThread = null;
     private volatile boolean mIsRecording = false;
-    private MediaCodec mAudioEncoder = null;
-    private MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
+    private volatile MediaCodec mAudioEncoder = null;
     private volatile boolean mIsStop = false;
     private Mp4Muxer mMuxer = null;
-    private long mLastTime = 0;
+    private volatile long mLastTime = 0;
+    private int bufferSize = 0;
 
 
 
     public void prepare() {
-        int bufferSize = AudioRecord.getMinBufferSize(frequence, channelConfig, audioEncoding);
+        bufferSize = AudioRecord.getMinBufferSize(frequence, channelConfig, audioEncoding);
         //实例化AudioRecord
         mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.CAMCORDER, frequence, channelConfig, audioEncoding, bufferSize);
         if(mInputBuffer==null) {
@@ -67,7 +67,6 @@ public class AudioRecordSource {
             outputAudioFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, bufferSize*2);
 
 
-            mAudioEncoder = null;
 
             try {
                 mAudioEncoder = MediaCodec.createByCodecName(audioCodecInfo.getName());
@@ -77,7 +76,9 @@ public class AudioRecordSource {
             } catch (IOException ioe) {
                 throw new RuntimeException("failed init mVideoEncoder", ioe);
             }
+
         }
+        mLastTime = 0;
 
     }
 
@@ -102,9 +103,40 @@ public class AudioRecordSource {
     }
 
     public void reset(){
-        mAudioEncoder.stop();
-        mAudioEncoder.release();
-        prepare();
+
+        mIsRecording = false;
+        if(mAudioEncoder!=null) {
+            mAudioEncoder.stop();
+            mAudioEncoder.release();
+            mAudioEncoder = null;
+        }
+
+        {
+
+            MediaCodecInfo audioCodecInfo = Mp4Config.selectCodec(Mp4Config.MIME_TYPE_AUDIO);
+            MediaFormat outputAudioFormat =
+                    MediaFormat.createAudioFormat(
+                            MIME_TYPE_AUDIO, Mp4Config.OUTPUT_AUDIO_SAMPLE_RATE_HZ,
+                            1);
+            outputAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, Mp4Config.OUTPUT_AUDIO_BIT_RATE);
+            outputAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, Mp4Config.OUTPUT_AUDIO_AAC_PROFILE);
+            outputAudioFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, bufferSize*2);
+
+
+
+            try {
+                mLastTime = 0;
+                mAudioEncoder = MediaCodec.createByCodecName(audioCodecInfo.getName());
+                mAudioEncoder.configure(outputAudioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+                mAudioEncoder.start();
+
+            } catch (IOException ioe) {
+                throw new RuntimeException("failed init mVideoEncoder", ioe);
+            }
+
+        }
+
+
     }
 
     public void resumeRecord() {
@@ -129,18 +161,20 @@ public class AudioRecordSource {
                     //从bufferSize中读取字节，返回读取的short个数
                     int bufferReadResult = mAudioRecord.read(mInputBuffer, 0, mInputBuffer.length);
                     if (mAudioEncoder != null) {
-                        mByteBuffer.position(0);
-                        mByteBuffer.put(mInputBuffer, 0, bufferReadResult);
-                        mByteBuffer.flip();
-                        info.offset = 0;
-                        info.size = bufferReadResult;
+
 //                        if (VERBOSE) Log.d(TAG, "nano time="+System.nanoTime());
 
                         if(mIsRecording) {
 //                            if (VERBOSE)
                                 Log.d(TAG, "time stamp="+info.presentationTimeUs);
-                            drainAudioEncoder(false, mByteBuffer, info);
+                            mByteBuffer.position(0);
+                            mByteBuffer.put(mInputBuffer, 0, bufferReadResult);
+                            mByteBuffer.flip();
+                            info.offset = 0;
+                            info.size = bufferReadResult;
                             info.presentationTimeUs = TimeStampGenerator.sharedInstance().getAudioStamp();
+                            drainAudioEncoder(false, mByteBuffer, info);
+
                         }
 
 
@@ -159,9 +193,11 @@ public class AudioRecordSource {
             } finally {
                 if (VERBOSE) Log.d(TAG, "AudioRecordSource stop");
 //                drainAudioEncoder(true, null, null);
-                mAudioRecord.stop();
-                mAudioRecord.release();
-                mAudioRecord = null;
+                if(mAudioRecord!=null) {
+                    mAudioRecord.stop();
+                    mAudioRecord.release();
+                    mAudioRecord = null;
+                }
             }
 
         }
@@ -191,18 +227,17 @@ public class AudioRecordSource {
         } else {
             if (VERBOSE) Log.d(TAG, "audio encode input buffer not available");
         }
-
+        if (VERBOSE) Log.d(TAG, "audio input time stamp="+info.presentationTimeUs);
 
         ByteBuffer[] encoderOutputBuffers = mAudioEncoder.getOutputBuffers();
+        MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
         while (true) {
             int encoderStatus = mAudioEncoder.dequeueOutputBuffer(mBufferInfo, TIMEOUT_USEC);
 
             if (VERBOSE) Log.d(TAG, "index="+encoderStatus+"|mBufferInfo.time="+mBufferInfo.presentationTimeUs);
-            //TODO 时间戳为啥会倒退！！！！！费解
-            if(mBufferInfo.presentationTimeUs<mLastTime){
-                mBufferInfo.presentationTimeUs = mLastTime +10000;
-            }
-            mLastTime = mBufferInfo.presentationTimeUs;
+
+
+
             TimeStampLogUtil.logTimeStamp(1, "dequeueOutputBuffer====");
             if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
                 // no output available yet
@@ -219,7 +254,9 @@ public class AudioRecordSource {
 
                 MediaFormat newFormat = mAudioEncoder.getOutputFormat();
                 if (VERBOSE) Log.d(TAG, "mAudioEncoder output format changed: " + newFormat);
-                mMuxer.addAudioTrack(newFormat);
+                if(mMuxer!=null) {
+                    mMuxer.addAudioTrack(newFormat);
+                }
 
             } else if (encoderStatus < 0) {
                 Log.w(TAG, "unexpected result from mVideoEncoder.dequeueOutputBuffer: " +
@@ -249,6 +286,10 @@ public class AudioRecordSource {
 //                if (mBufferInfo.size != 0) {
                     // adjust the ByteBuffer values to match BufferInfo (not needed?)
                     if (mMuxer != null ) {
+                        if(mBufferInfo.presentationTimeUs<mLastTime){
+                            mBufferInfo.presentationTimeUs = mLastTime +10000;
+                        }
+                        mLastTime = mBufferInfo.presentationTimeUs;
                         mMuxer.writeAudio(encodedData, mBufferInfo);
                     }
                     TimeStampLogUtil.logTimeStamp(1, "writeSampleData====");
@@ -267,5 +308,9 @@ public class AudioRecordSource {
                 }
             }
         }
+    }
+
+    public void release() {
+        mMuxer = null;
     }
 }

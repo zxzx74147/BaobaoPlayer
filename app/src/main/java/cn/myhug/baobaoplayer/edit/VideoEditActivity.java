@@ -13,9 +13,6 @@ import android.view.View;
 import android.widget.SeekBar;
 
 import com.afollestad.materialdialogs.MaterialDialog;
-import com.liulishuo.filedownloader.BaseDownloadTask;
-import com.liulishuo.filedownloader.FileDownloadListener;
-import com.liulishuo.filedownloader.FileDownloader;
 
 import java.io.File;
 import java.io.IOException;
@@ -39,6 +36,7 @@ import cn.myhug.baobaoplayer.media.MediaMixer;
 import cn.myhug.baobaoplayer.util.FileUtil;
 import cn.myhug.baobaoplayer.widget.recyclerview.CommonDataConverter;
 import cn.myhug.baobaoplayer.widget.recyclerview.CommonRecyclerViewAdapter;
+import tv.danmaku.ijk.media.player.IMediaPlayer;
 
 public class VideoEditActivity extends BaseActivity {
 
@@ -66,61 +64,31 @@ public class VideoEditActivity extends BaseActivity {
 
 
 
-//        mBinding.videoView.postDelayed(new Runnable() {
-//            @Override
-//            public void run() {
-//
-//
-////                mBinding.videoView.setVideoURI(Uri.parse("http://113.200.90.21/vkp.tc.qq.com/x0022ku30tr.p212.1.mp4?sdtfrom=v1010&amp;guid=ded6226f902db8e568f3832327f29699&amp;vkey=DCDDCE109DC1BCD5A1127B7194758E3FDA270C765F623DC0FA0B7198202AC37119DFAA2BA25192B4D42239BEE63F969981DA648451C30B1A1658E0CDCACFE42714D9BE8148CE23E514B820C70AAF90E51C14BAD86DEB59B0"));
-////                mBinding.exoPlayerView.setVideoURI(mSource);
-////                mBinding.videoView.setVideoURI(Uri.parse(  "http://pws.myhug.cn/video/w/9/a37230e4540c14ebf4396ff553424420"));
-//                mBinding.exoPlayerView.setOnPreparedListener(new OnPreparedListener() {
-//                    @Override
-//                    public void onPrepared() {
-//                        mBinding.exoPlayerView.start();
-//                    }
-//                });
-//                String url = "http://pws.myhug.cn/video/w/9/a37230e4540c14ebf4396ff553424420";
-//
-//                HttpProxyCacheServer proxy = PlayerApplication.sharedInstance().getProxy(VideoEditActivity.this);
-//                String proxyUrl = proxy.getProxyUrl(url);
-//
-//
-//                mBinding.exoPlayerView.setVideoURI(Uri.parse(proxyUrl));
-////                mBinding.exoPlayerView.start();
-//                mBinding.videoView.seekTo(stopPosition);
-//                mDuration = mBinding.videoView.getDuration();
-//                mDuration = Math.min(MAX_LEN, mDuration);
-//                initSeekBar();
-//            }
-//        }, 300);
-
         mBinding.videoView.postDelayed(new Runnable() {
             @Override
             public void run() {
-//                String url = "http://pws.myhug.cn/video/w/9/a37230e4540c14ebf4396ff553424420";
-//
-//                HttpProxyCacheServer proxy = PlayerApplication.sharedInstance().getProxy(VideoEditActivity.this);
-//                String proxyUrl = proxy.getProxyUrl(url);
-                mBinding.videoView.setVideoURI(mSource);
-                mBinding.videoView.start();
-                mBinding.videoView.seekTo(stopPosition);
+                if(!mBinding.videoView.isPlaying()) {
+                    mBinding.videoView.setVideoURI(mSource);
+//                mBinding.videoView.setVideoURI(Uri.parse("http://2449.vod.myqcloud.com/2449_22ca37a6ea9011e5acaaf51d105342e3.f20.mp4"));
+                    mBinding.videoView.start();
+                    mBinding.videoView.seekTo(stopPosition);
+                }
                 mDuration = mBinding.videoView.getDuration();
                 mDuration = Math.min(MAX_LEN, mDuration);
                 initSeekBar();
             }
         }, 300);
 
-//        mBinding.videoView.setOnCompletionListener(new IMediaPlayer.OnCompletionListener() {
-//            @Override
-//            public void onCompletion(IMediaPlayer mp) {
-//                mBinding.videoView.seekTo(0);
-//                mBinding.videoView.start();
-//                if(mBgmPlayer!=null){
-//                    mBgmPlayer.seekTo(0);
-//                }
-//            }
-//        });
+        mBinding.videoView.setOnCompletionListener(new IMediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(IMediaPlayer mp) {
+                mBinding.videoView.seekTo(0);
+                mBinding.videoView.start();
+                if(mBgmPlayer!=null){
+                    mBgmPlayer.seekTo(0);
+                }
+            }
+        });
 //        startDownload();
     }
 
@@ -162,7 +130,7 @@ public class VideoEditActivity extends BaseActivity {
                 mLastFilter = data;
                 binding.setItem(data);
                 mAdapter.notifyDataSetChanged();
-                mBinding.videoView.setFilter(filter);
+                mBinding.videoView.setFilter(data.mType);
 //                mBinding.videoView.seekTo(0);
             }
         });
@@ -177,6 +145,7 @@ public class VideoEditActivity extends BaseActivity {
     @Override
     public void onPause() {
         super.onPause();
+//        mBinding.videoView.onPause();
         if (mBinding.videoView.canPause()) {
             stopPosition = mBinding.videoView.getCurrentPosition();
             mBinding.videoView.pause();
@@ -325,6 +294,15 @@ public class VideoEditActivity extends BaseActivity {
         }
     };
 
+    public void onStop(View v){
+        mBinding.videoView.stopPlayback();
+    }
+
+    public void onPlay(View v){
+        mBinding.videoView.setVideoURI(Uri.parse("http://pws.myhug.cn/video/w/9/54308d9ee7170e98e3243a9514037500"));
+        mBinding.videoView.start();
+    }
+
 
     @Override
     public void onDestroy() {
@@ -339,50 +317,6 @@ public class VideoEditActivity extends BaseActivity {
 
     }
 
-    public void startDownload(){
-        final File file = FileUtil.getFile("temp.mp4");
-        FileDownloader.getImpl().create("http://pws.myhug.cn/video/w/9/f5bce6a4d8b661c2b591b6640a03bd0b")
-                .setPath(file.getAbsolutePath())
-                .setListener(new FileDownloadListener() {
-                    @Override
-                    protected void pending(BaseDownloadTask task, int soFarBytes, int totalBytes) {
-                    }
-
-                    @Override
-                    protected void connected(BaseDownloadTask task, String etag, boolean isContinue, int soFarBytes, int totalBytes) {
-                    }
-
-                    @Override
-                    protected void progress(BaseDownloadTask task, int soFarBytes, int totalBytes) {
-                    }
-
-                    @Override
-                    protected void blockComplete(BaseDownloadTask task) {
-                    }
-
-                    @Override
-                    protected void retry(final BaseDownloadTask task, final Throwable ex, final int retryingTimes, final int soFarBytes) {
-                    }
-
-                    @Override
-                    protected void completed(BaseDownloadTask task) {
-                        mBinding.videoView.setVideoPath(file.getAbsolutePath());
-                        mBinding.videoView.start();
-                    }
-
-                    @Override
-                    protected void paused(BaseDownloadTask task, int soFarBytes, int totalBytes) {
-                    }
-
-                    @Override
-                    protected void error(BaseDownloadTask task, Throwable e) {
-                    }
-
-                    @Override
-                    protected void warn(BaseDownloadTask task) {
-                    }
-                }).start();
-    }
 
 
 

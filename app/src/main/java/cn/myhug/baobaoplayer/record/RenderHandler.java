@@ -9,13 +9,13 @@ import android.view.SurfaceHolder;
 import java.lang.ref.WeakReference;
 
 /**
- * Handler for RenderThread.  Used for messages sent from the UI thread to the render thread.
+ * Handler for PlayerRenderThread.  Used for messages sent from the UI thread to the render thread.
  * <p/>
  * The object is created on the render thread, and the various "send" methods are called
  * from the UI thread.
  */
 public class RenderHandler extends Handler {
-    private static final String TAG = "RenderHandler";
+    private static final String TAG = "PlayerRenderHandler";
     private static final int MSG_SURFACE_AVAILABLE = 0;
     private static final int MSG_SURFACE_CHANGED = 1;
     private static final int MSG_SURFACE_DESTROYED = 2;
@@ -165,14 +165,14 @@ public class RenderHandler extends Handler {
         sendMessage(obtainMessage(MSG_REDRAW));
     }
 
-    @Override  // runs on RenderThread
+    @Override  // runs on PlayerRenderThread
     public void handleMessage(Message msg) {
         int what = msg.what;
-        //Log.d(TAG, "RenderHandler [" + this + "]: what=" + what);
+        //Log.d(TAG, "PlayerRenderHandler [" + this + "]: what=" + what);
 
         RenderThread renderThread = mWeakRenderThread.get();
         if (renderThread == null) {
-            Log.w(TAG, "RenderHandler.handleMessage: weak ref is null");
+            Log.w(TAG, "PlayerRenderHandler.handleMessage: weak ref is null");
             return;
         }
 

@@ -17,13 +17,14 @@
 package cn.myhug.baobaoplayer.widget;
 
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.SurfaceTexture;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.opengl.GLES20;
-import android.opengl.Matrix;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -38,6 +39,7 @@ import android.widget.MediaController;
 import android.widget.MediaController.MediaPlayerControl;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -61,6 +63,8 @@ import cn.myhug.baobaoplayer.utils.TextureRotationUtil;
 import tv.danmaku.ijk.media.exo.IjkExoMediaPlayer;
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 
+import static android.R.attr.format;
+
 /**
  * Displays a video file.  The VideoView class
  * can load images from various sources (such as resources or content
@@ -69,7 +73,9 @@ import tv.danmaku.ijk.media.player.IMediaPlayer;
  * such as scaling and tinting.
  */
 public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl, IChangeFilter {
-    private String TAG = "VideoView";
+
+    private int id = (int) (System.currentTimeMillis() % 1000);
+    private String TAG = "BBFilterVideoView:" + id;
     // settable by the client
     private Uri mUri;
     private Map<String, String> mHeaders;
@@ -92,11 +98,10 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
     private int mTargetState = STATE_IDLE;
 
     // All the stuff we need for playing and showing a video
-    private SurfaceHolder mSurfaceHolder = null;
+//    private SurfaceHolder mSurfaceHolder = null;
     //    private MediaPlayer mMediaPlayer = null;
     private IMediaPlayer mMediaPlayer = null;
-    private int mVideoWidth;
-    private int mVideoHeight;
+
     private int mSurfaceWidth;
     private int mSurfaceHeight;
     private MediaController mMediaController;
@@ -110,14 +115,16 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
     private boolean mCanSeekBack;
     private boolean mCanSeekForward;
     private Context mContext;
-    private GPUImageFilter mImageFilter;
-    private GPUImageFilter mImageFilterBack;
-    private FloatBuffer mGLCubeBuffer;
-    private FloatBuffer mGLTextureBuffer;
-    private MagicSurfaceInputFilter mSurfaceFilter = null;
-    protected int textureId = OpenGlUtils.NO_TEXTURE;
+    private RenderThread mRenderThread = null;
+    private int mVideoWidth, mVideoHeight;
+    private SurfaceHolder sSurfaceHolder;
+    private MagicFilterType mFilterType = null;
+    private int mRotate = 0;
 
-
+    public static class UnionData {
+        public SurfaceHolder holder;
+        public IMediaPlayer player;
+    }
 
 
     public BBFilterVideoView(Context context) {
@@ -209,24 +216,39 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
         requestFocus();
         mCurrentState = STATE_IDLE;
         mTargetState = STATE_IDLE;
-        mGLCubeBuffer = ByteBuffer.allocateDirect(TextureRotationUtil.CUBE.length * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer();
-        mGLTextureBuffer = ByteBuffer.allocateDirect(TextureRotationUtil.TEXTURE_NO_ROTATION.length * 4)
-                .order(ByteOrder.nativeOrder())
-                .asFloatBuffer();
-        mGLCubeBuffer.clear();
-        mGLCubeBuffer.put(TextureRotationUtil.CUBE).position(0);
-        mGLTextureBuffer.clear();
-        float[] textureCords = TextureRotationUtil.getRotation(Rotation.fromInt(0), false, true);
-        mGLTextureBuffer.put(textureCords).position(0);
+
+        mOnInfoListener = new IMediaPlayer.OnInfoListener() {
+            @Override
+            public boolean onInfo(IMediaPlayer iMediaPlayer, int i, int i1) {
+                switch (i) {
+                    case IMediaPlayer.MEDIA_INFO_VIDEO_ROTATION_CHANGED:
+                        if (mRenderThread != null) {
+
+                            mRotate = i1;
+                            if (mVideoWidth != 0 && mVideoHeight != 0) {
+                                if (mRotate % 180 == 90) {
+                                    mVideoWidth = iMediaPlayer.getVideoHeight();
+                                    mVideoHeight = iMediaPlayer.getVideoWidth();
+                                } else {
+                                    mVideoWidth = iMediaPlayer.getVideoWidth();
+                                    mVideoHeight = iMediaPlayer.getVideoHeight();
+                                }
+                                requestLayout();
+                            }
+                            RenderHandler rh = mRenderThread.getHandler();
+                            if (rh != null) {
+                                rh.sendRotateChanged(mRotate);
+                            }
+                        }
+                        break;
+                }
+                return false;
+            }
+        };
 
 
     }
 
-    public void setVideoPath(String path) {
-        setVideoURI(Uri.parse(path));
-    }
 
     public void setVideoURI(Uri uri) {
         setVideoURI(uri, null);
@@ -242,38 +264,75 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
         openVideo();
         requestLayout();
         invalidate();
-//        mMediaPlayer.setLooping(true);
+    }
+
+    private void onPause() {
+        if (mRenderThread == null) {
+            return;
+        }
+        RenderHandler rh = mRenderThread.getHandler();
+        rh.sendShutdown();
+        try {
+            mRenderThread.join();
+        } catch (InterruptedException ie) {
+            // not expected
+            throw new RuntimeException("join was interrupted", ie);
+        }
+        sSurfaceHolder = null;
+        mRenderThread = null;
+        Log.d(TAG, "onPause END");
     }
 
     public void stopPlayback() {
         if (mMediaPlayer != null) {
+            mMediaPlayer.reset();
+            mMediaPlayer.setSurface(null);
             mMediaPlayer.stop();
             mMediaPlayer.release();
             mMediaPlayer = null;
             mCurrentState = STATE_IDLE;
             mTargetState = STATE_IDLE;
-            if (mWindowSurface != null) {
-                mWindowSurface.release();
-                mWindowSurface = null;
-            }
-            if (mDecodeSurfaceTexture != null) {
-                mDecodeSurfaceTexture.release();
-                mDecodeSurfaceTexture = null;
-            }
-            releaseSurface();
         }
     }
 
+    private void onResume() {
+        mRenderThread = new RenderThread(new MainHandler(this));
+        mRenderThread.setName("TexFromCam Render");
+        mRenderThread.start();
+        mRenderThread.waitUntilReady();
+
+        RenderHandler rh = mRenderThread.getHandler();
+
+        if (sSurfaceHolder != null) {
+            Log.d(TAG, "Sending previous surface");
+            rh.sendSurfaceAvailable(sSurfaceHolder, false, mMediaPlayer);
+        } else {
+            Log.d(TAG, "No previous surface");
+        }
+        if (mSurfaceWidth > 0 && mSurfaceHeight > 0) {
+            rh.sendSurfaceChanged(format, mSurfaceWidth, mSurfaceHeight);
+        }
+        if (mVideoWidth > 0 && mVideoHeight > 0) {
+            rh.sendVideoChanged(mVideoWidth, mVideoHeight);
+        }
+        if (mFilterType != null) {
+            rh.sendFilterChanged(mFilterType);
+        }
+        Log.d(TAG, "onResume END");
+
+
+    }
+
     private void openVideo() {
-        if (mUri == null || mSurfaceHolder == null) {
+        if (mUri == null || sSurfaceHolder == null) {
             // not ready for playback just yet, will try again later
             return;
         }
         // Tell the music playback service to pause
         // TODO: these constants need to be published somewhere in the framework.
-        Intent i = new Intent("com.android.music.musicservicecommand");
-        i.putExtra("command", "pause");
-        mContext.sendBroadcast(i);
+//        Intent i = new Intent("com.android.music.musicservicecommand");
+//        i.putExtra("command", "pause");
+//        mContext.sendBroadcast(i);
 
         // we shouldn't clear the target state, because somebody might have
         // called start() previously
@@ -286,10 +345,11 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
 //            mediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec", 1);
 //            mediaPlayer.setOption(IjkMediaPlayer.OPT_CATEGORY_PLAYER, "mediacodec-auto-rotate", 1);
 
-
+//            if(mMediaPlayer ==null) {
+//                mMediaPlayer = new IjkExoMediaPlayer(mContext);
+//            }
+            Log.d(TAG, "create Player");
             mMediaPlayer = new IjkExoMediaPlayer(mContext);
-
-//            mMediaPlayer = new IjkExoMediaPlayer(mContext);
             mMediaPlayer.setOnPreparedListener(mPreparedListener);
             mMediaPlayer.setOnVideoSizeChangedListener(mSizeChangedListener);
             mMediaPlayer.setOnCompletionListener(mCompletionListener);
@@ -298,10 +358,11 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
             mMediaPlayer.setOnBufferingUpdateListener(mBufferingUpdateListener);
             mCurrentBufferPercentage = 0;
             mMediaPlayer.setDataSource(mContext, mUri, mHeaders);
-            prepareSurface();
             mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
             mMediaPlayer.setScreenOnWhilePlaying(true);
-            mMediaPlayer.prepareAsync();
+            prepareDecodeSurface();
+
+//            mMediaPlayer.prepareAsync();
             // we don't set the target state here either, but preserve the
             // target state that was there before.
             mCurrentState = STATE_PREPARING;
@@ -318,6 +379,21 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
             mTargetState = STATE_ERROR;
             mErrorListener.onError(mMediaPlayer, MediaPlayer.MEDIA_ERROR_UNKNOWN, 0);
             return;
+        }
+    }
+
+
+    public void prepareDecodeSurface() {
+        if (mRenderThread == null) {
+            return;
+        }
+        RenderHandler rh = mRenderThread.getHandler();
+
+        if (sSurfaceHolder != null) {
+            Log.d(TAG, "Sending previous surface");
+            rh.sendSurfaceAvailable(sSurfaceHolder, false, mMediaPlayer);
+        } else {
+            Log.d(TAG, "No previous surface");
         }
     }
 
@@ -343,13 +419,27 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
             new IMediaPlayer.OnVideoSizeChangedListener() {
 
                 @Override
-                public void onVideoSizeChanged(IMediaPlayer mp, int width, int height, int sar_num, int sar_den) {
-                    mVideoWidth = mp.getVideoWidth();
-                    mVideoHeight = mp.getVideoHeight();
-                    if (mVideoWidth != 0 && mVideoHeight != 0) {
-                        getHolder().setFixedSize(mVideoWidth, mVideoHeight);
-                        requestLayout();
-                    }
+                public void onVideoSizeChanged(final IMediaPlayer mp, int width, int height, int sar_num, int sar_den) {
+                    post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (mVideoWidth != 0 && mVideoHeight != 0) {
+                                if (mRotate % 180 == 90) {
+                                    mVideoWidth = mp.getVideoHeight();
+                                    mVideoHeight = mp.getVideoWidth();
+                                } else {
+                                    mVideoWidth = mp.getVideoWidth();
+                                    mVideoHeight = mp.getVideoHeight();
+                                }
+                                requestLayout();
+                            }
+                            if (mRenderThread != null) {
+                                RenderHandler rh = mRenderThread.getHandler();
+                                rh.sendVideoChanged(mVideoWidth, mVideoHeight);
+                            }
+                        }
+                    });
+
                 }
 
 //            public void onVideoSizeChanged(IMediaPlayer mp, int width, int height) {
@@ -363,10 +453,13 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
             };
 
     IMediaPlayer.OnPreparedListener mPreparedListener = new IMediaPlayer.OnPreparedListener() {
-        public void onPrepared(IMediaPlayer mp) {
-            mCurrentState = STATE_PREPARED;
+        public void onPrepared(final IMediaPlayer mp) {
+            post(new Runnable() {
+                @Override
+                public void run() {
+                    mCurrentState = STATE_PREPARED;
 
-            // Get the capabilities of the player for this stream
+                    // Get the capabilities of the player for this stream
 //            Metadata data = mp.getMetadata(MediaPlayer.METADATA_ALL,
 //                                      MediaPlayer.BYPASS_METADATA_FILTER);
 //
@@ -378,49 +471,59 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
 //                mCanSeekForward = !data.has(Metadata.SEEK_FORWARD_AVAILABLE)
 //                        || data.getBoolean(Metadata.SEEK_FORWARD_AVAILABLE);
 //            } else {
-            mCanPause = mCanSeekBack = mCanSeekForward = true;
+                    mCanPause = mCanSeekBack = mCanSeekForward = true;
 //            }
 
-            if (mOnPreparedListener != null) {
-                mOnPreparedListener.onPrepared(mMediaPlayer);
-            }
-            if (mMediaController != null) {
-                mMediaController.setEnabled(true);
-            }
-            mVideoWidth = mp.getVideoWidth();
-            mVideoHeight = mp.getVideoHeight();
+                    if (mOnPreparedListener != null) {
+                        mOnPreparedListener.onPrepared(mMediaPlayer);
+                    }
+                    if (mMediaController != null) {
+                        mMediaController.setEnabled(true);
+                    }
+                    if (mRotate % 180 == 90) {
+                        mVideoWidth = mp.getVideoHeight();
+                        mVideoHeight = mp.getVideoWidth();
+                    } else {
+                        mVideoWidth = mp.getVideoWidth();
+                        mVideoHeight = mp.getVideoHeight();
+                    }
+//                    mVideoWidth = mp.getVideoWidth();
+//                    mVideoHeight = mp.getVideoHeight();
 
-            int seekToPosition = mSeekWhenPrepared;  // mSeekWhenPrepared may be changed after seekTo() call
-            if (seekToPosition != 0) {
-                seekTo(seekToPosition);
-            }
-            if (mVideoWidth != 0 && mVideoHeight != 0) {
-                //Log.i("@@@@", "video size: " + mVideoWidth +"/"+ mVideoHeight);
-                getHolder().setFixedSize(mVideoWidth, mVideoHeight);
-                if (mSurfaceWidth == mVideoWidth && mSurfaceHeight == mVideoHeight) {
-                    // We didn't actually change the size (it was already at the size
-                    // we need), so we won't get a "surface changed" callback, so
-                    // start the video here instead of in the callback.
-                    if (mTargetState == STATE_PLAYING) {
-                        start();
-                        if (mMediaController != null) {
-                            mMediaController.show();
+                    int seekToPosition = mSeekWhenPrepared;  // mSeekWhenPrepared may be changed after seekTo() call
+                    if (seekToPosition != 0) {
+                        seekTo(seekToPosition);
+                    }
+                    if (mVideoWidth != 0 && mVideoHeight != 0) {
+                        //Log.i("@@@@", "video size: " + mVideoWidth +"/"+ mVideoHeight);
+                        getHolder().setFixedSize(mVideoWidth, mVideoHeight);
+                        if (mSurfaceWidth == mVideoWidth && mSurfaceHeight == mVideoHeight) {
+                            // We didn't actually change the size (it was already at the size
+                            // we need), so we won't get a "surface changed" callback, so
+                            // start the video here instead of in the callback.
+                            if (mTargetState == STATE_PLAYING) {
+                                start();
+                                if (mMediaController != null) {
+                                    mMediaController.show();
+                                }
+                            } else if (!isPlaying() &&
+                                    (seekToPosition != 0 || getCurrentPosition() > 0)) {
+                                if (mMediaController != null) {
+                                    // Show the media controls when we're paused into a video and make 'em stick.
+                                    mMediaController.show(0);
+                                }
+                            }
                         }
-                    } else if (!isPlaying() &&
-                            (seekToPosition != 0 || getCurrentPosition() > 0)) {
-                        if (mMediaController != null) {
-                            // Show the media controls when we're paused into a video and make 'em stick.
-                            mMediaController.show(0);
+                    } else {
+                        // We don't know the video size yet, but should start anyway.
+                        // The video size might be reported to us later.
+                        if (mTargetState == STATE_PLAYING) {
+                            start();
                         }
                     }
                 }
-            } else {
-                // We don't know the video size yet, but should start anyway.
-                // The video size might be reported to us later.
-                if (mTargetState == STATE_PLAYING) {
-                    start();
-                }
-            }
+            });
+
         }
     };
 
@@ -433,10 +536,8 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
                         mMediaController.hide();
                     }
                     if (mOnCompletionListener != null) {
-                        mOnCompletionListener.onCompletion(mMediaPlayer);
+                        mOnCompletionListener.onCompletion(mp);
                     }
-                    seekTo(0);
-                    start();
                 }
             };
 
@@ -452,7 +553,7 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
 
             /* If an error handler has been supplied, use it and finish. */
                     if (mOnErrorListener != null) {
-                        if (mOnErrorListener.onError(mMediaPlayer, framework_err, impl_err)) {
+                        if (mOnErrorListener.onError(mp, framework_err, impl_err)) {
                             return true;
                         }
                     }
@@ -554,19 +655,62 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
                 }
                 start();
             }
-            updateGeometry();
+            Log.d(TAG, "surfaceChanged fmt=" + format + " size=" + w + "x" + h +
+                    " holder=" + holder);
+
+            if (mRenderThread != null) {
+                RenderHandler rh = mRenderThread.getHandler();
+                if (rh != null) {
+                    rh.sendSurfaceChanged(format, mSurfaceWidth, mSurfaceHeight);
+                    rh.sendVideoChanged(mVideoWidth, mVideoHeight);
+                }
+            } else {
+                Log.d(TAG, "Ignoring surfaceChanged");
+                return;
+            }
         }
 
         public void surfaceCreated(SurfaceHolder holder) {
-            mSurfaceHolder = holder;
+            Log.d(TAG, "surfaceCreated holder=" + holder + " (static=" + sSurfaceHolder + ")");
+            if (sSurfaceHolder != null) {
+                throw new RuntimeException("sSurfaceHolder is already set");
+            }
+
+            sSurfaceHolder = holder;
+
+            onResume();
+
+            if (mRenderThread != null) {
+                // Normal case -- render thread is running, tell it about the new surface.
+                RenderHandler rh = mRenderThread.getHandler();
+                rh.sendSurfaceAvailable(holder, true, mMediaPlayer);
+            } else {
+                // Sometimes see this on 4.4.x N5: power off, power on, unlock, with device in
+                // landscape and a lock screen that requires portrait.  The surface-created
+                // message is showing up after onPause().
+                //
+                // Chances are good that the surface will be destroyed before the activity is
+                // unpaused, but we track it anyway.  If the activity is un-paused and we start
+                // the RenderThread, the SurfaceHolder will be passed in right after the thread
+                // is created.
+                Log.d(TAG, "render thread not running");
+            }
             openVideo();
         }
 
         public void surfaceDestroyed(SurfaceHolder holder) {
             // after we return from this we can't use the surface any more
-            mSurfaceHolder = null;
+            Log.d(TAG, "surfaceDestroyed holder=" + holder);
+
+            sSurfaceHolder = null;
+            if (mRenderThread != null) {
+                RenderHandler rh = mRenderThread.getHandler();
+                rh.sendSurfaceDestroyed();
+            }
+
             if (mMediaController != null) mMediaController.hide();
             release(true);
+            onPause();
         }
     };
 
@@ -574,8 +718,15 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
      * release the media player in any state
      */
     private void release(boolean cleartargetstate) {
+
         if (mMediaPlayer != null) {
-            mMediaPlayer.reset();
+            mMediaPlayer.setOnInfoListener(null);
+            mMediaPlayer.setOnCompletionListener(null);
+            mMediaPlayer.setOnPreparedListener(null);
+            mMediaPlayer.setOnErrorListener(null);
+            mMediaPlayer.setOnVideoSizeChangedListener(null);
+            mMediaPlayer.stop();
+//            mMediaPlayer.reset();
             mMediaPlayer.release();
             mMediaPlayer = null;
             mCurrentState = STATE_IDLE;
@@ -583,7 +734,6 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
                 mTargetState = STATE_IDLE;
             }
         }
-        releaseSurface();
     }
 
     @Override
@@ -679,7 +829,7 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
 
     public void resume2() {
         if (!isInPlaybackState()) {
-            if (mMediaPlayer!=null&&!mMediaPlayer.isPlaying()) {
+            if (mMediaPlayer != null && !mMediaPlayer.isPlaying()) {
                 mMediaPlayer.start();
                 mCurrentState = STATE_PLAYING;
             }
@@ -745,148 +895,533 @@ public class BBFilterVideoView extends SurfaceView implements MediaPlayerControl
         return 0;
     }
 
-
-
-
-    private SurfaceTexture mDecodeSurfaceTexture;
-
-    // Orthographic projection matrix.
-    private float[] mDisplayProjectionMatrix = new float[16];
-
-    private EglCore mEglCore;
-    private Texture2dProgram mTexProgram;
-    private WindowSurface mWindowSurface;
-    private final ScaledDrawable2d mRectDrawable =
-            new ScaledDrawable2d(Drawable2d.Prefab.RECTANGLE);
-    private final Sprite2d mRect = new Sprite2d(mRectDrawable);
-
-    private int mWindowSurfaceWidth;
-    private int mWindowSurfaceHeight;
-
-    public void releaseSurface(){
-        if (mSurfaceFilter != null) {
-            mSurfaceFilter.destroy();
-            mSurfaceFilter = null;
+    @Override
+    public void setFilter(MagicFilterType type) {
+        mFilterType = type;
+        if (mRenderThread == null) {
+            return;
         }
-        if (mImageFilter != null) {
-            mImageFilter.destroy();
-            mImageFilter = null;
+        RenderHandler rh = mRenderThread.getHandler();
+        if (rh != null) {
+            rh.sendFilterChanged(mFilterType);
         }
-        if(mEglCore!=null){
-            mEglCore.release();
-            mEglCore = null;
-        }
-        if(textureId!=OpenGlUtils.NO_TEXTURE) {
-            GLES20.glDeleteTextures(1, new int[]{textureId}, 0);
-            textureId = OpenGlUtils.NO_TEXTURE;
-        }
-
     }
 
-    public void prepareSurface() {
+    private void onPlayerReady(IMediaPlayer player) {
+        player.prepareAsync();
+    }
 
 
-        if (mEglCore == null) {
-            mEglCore = new EglCore(null, 0);
-            mWindowSurface = new WindowSurface(mEglCore, mSurfaceHolder.getSurface(), false);
-            mWindowSurface.makeCurrent();
-            mImageFilter = MagicFilterFactory.initFilters(MagicFilterType.NONE);
-            mImageFilter.init();
-            mSurfaceFilter = new MagicSurfaceInputFilter();
-            mSurfaceFilter.init();
+    private static class RenderThread extends Thread implements
+            SurfaceTexture.OnFrameAvailableListener {
+        private static final String TAG = "RenderThread";
 
+        // Orthographic projection matrix.
+        private float[] mDisplayProjectionMatrix = new float[16];
 
+        private Object mStartLock = new Object();
+        private boolean mReady = false;
+        private EglCore mEglCore;
+        private Texture2dProgram mTexProgram;
+        private WindowSurface mWindowSurface;
+        private final ScaledDrawable2d mRectDrawable =
+                new ScaledDrawable2d(Drawable2d.Prefab.RECTANGLE);
+        private final Sprite2d mRect = new Sprite2d(mRectDrawable);
+
+        private int mWindowSurfaceWidth;
+        private int mWindowSurfaceHeight;
+
+        private GPUImageFilter mImageFilter;
+        private MagicFilterType mDstType;
+        private FloatBuffer mGLCubeBuffer;
+        private FloatBuffer mGLTextureBuffer;
+        private MagicSurfaceInputFilter mSurfaceFilter = null;
+
+        //        private int mVideoWidth;
+//        private int mVideoHeight;
+        private int textureId = OpenGlUtils.NO_TEXTURE;
+        private SurfaceTexture mDecodeSurfaceTexture;
+        private RenderHandler mHandler = null;
+        private int mVideoWidth = 0, mVideoHeight = 0;
+        private int mRotate = 0;
+        private Surface mSuraface = null;
+        private IMediaPlayer mPlayer = null;
+        private MainHandler mMainHandler = null;
+
+        public RenderThread(MainHandler mainHandler) {
+            mMainHandler = mainHandler;
+            mGLCubeBuffer = ByteBuffer.allocateDirect(TextureRotationUtil.CUBE.length * 4)
+                    .order(ByteOrder.nativeOrder())
+                    .asFloatBuffer();
+            mGLTextureBuffer = ByteBuffer.allocateDirect(TextureRotationUtil.TEXTURE_NO_ROTATION.length * 4)
+                    .order(ByteOrder.nativeOrder())
+                    .asFloatBuffer();
+            mGLCubeBuffer.clear();
+            mGLCubeBuffer.put(TextureRotationUtil.CUBE).position(0);
+            mGLTextureBuffer.clear();
+            float[] textureCords = TextureRotationUtil.getRotation(Rotation.fromInt(0), false, true);
+            mGLTextureBuffer.put(textureCords).position(0);
         }
-        mWindowSurfaceWidth = mWindowSurface.getWidth();
-        mWindowSurfaceHeight = mWindowSurface.getHeight();
-        Matrix.orthoM(mDisplayProjectionMatrix, 0, 0, mWindowSurfaceWidth, 0, getHeight(), -1, 1);
 
-        if (textureId == OpenGlUtils.NO_TEXTURE) {
-            textureId = OpenGlUtils.getExternalOESTextureID();
-            if (textureId != OpenGlUtils.NO_TEXTURE) {
-                mDecodeSurfaceTexture = new SurfaceTexture(textureId);
-                mMediaPlayer.setSurface(new Surface(mDecodeSurfaceTexture));
-                mDecodeSurfaceTexture.setOnFrameAvailableListener(mDecodeFrameAvaliableListener);
+        /**
+         * Thread entry point.
+         */
+        @Override
+        public void run() {
+            Looper.prepare();
+            Log.d(TAG, "looper start");
+            // We need to create the Handler before reporting ready.
+            mHandler = new RenderHandler(this);
+            synchronized (mStartLock) {
+                mReady = true;
+                mStartLock.notify();    // signal waitUntilReady()
+            }
+            Log.d(TAG, "looper create eglcore");
+            // Prepare EGL and open the camera before we start handling messages.
+            mEglCore = new EglCore(null, 0);
+
+            Looper.loop();
+
+            Log.d(TAG, "looper quit");
+            releaseSurface();
+
+            synchronized (mStartLock) {
+                mReady = false;
             }
         }
-//        OutputSurface mOutput = new OutputSurface();
-//        mOutput.getSurface();
 
-        updateGeometry();
-    }
-
-    private void updateGeometry() {
-        if (mVideoHeight == 0 || mWindowSurfaceWidth == 0) {
-            return;
-        }
-        int width = mWindowSurfaceWidth;
-        int height = mWindowSurfaceHeight;
-        if (mVideoWidth > 0) {
-            height = mVideoHeight * width / mVideoWidth;
-        }
-        mWindowSurfaceWidth = width;
-        mWindowSurfaceHeight = height;
-
-        if (mImageFilter == null) {
-            return;
+        public void waitUntilReady() {
+            synchronized (mStartLock) {
+                while (!mReady) {
+                    try {
+                        mStartLock.wait();
+                    } catch (InterruptedException ie) { /* not expected */ }
+                }
+            }
         }
 
-        mImageFilter.onDisplaySizeChanged(width, height);
-        mImageFilter.onInputSizeChanged(mVideoWidth, mVideoHeight);
+        public void releaseSurface() {
 
-        if (mSurfaceFilter == null) {
-            return;
+            if (mSurfaceFilter != null) {
+                mSurfaceFilter.destroy();
+                mSurfaceFilter = null;
+            }
+            if (mImageFilter != null) {
+                mImageFilter.destroy();
+                mImageFilter = null;
+            }
+            if (mEglCore != null) {
+                mEglCore.release();
+                mEglCore = null;
+            }
+            if (mWindowSurface != null) {
+                mWindowSurface.release();
+                mWindowSurface = null;
+            }
+            if (mDecodeSurfaceTexture != null) {
+                mDecodeSurfaceTexture.release();
+                mDecodeSurfaceTexture = null;
+            }
+            if (textureId != OpenGlUtils.NO_TEXTURE) {
+                GLES20.glDeleteTextures(1, new int[]{textureId}, 0);
+                textureId = OpenGlUtils.NO_TEXTURE;
+            }
+
         }
-//        mSurfaceFilter.onDisplaySizeChanged(width, height);
-        mSurfaceFilter.onDisplaySizeChanged(mVideoWidth, mVideoHeight);
-        mSurfaceFilter.onInputSizeChanged(mVideoWidth, mVideoHeight);
-        mSurfaceFilter.initSurfaceFrameBuffer(mVideoWidth, mVideoHeight);
-    }
+
+        public void prepareSurface(SurfaceHolder holder, boolean newSurface, IMediaPlayer player) {
+
+            if (mPlayer == player) {
+                return;
+            }
+            mPlayer = player;
+            if (player == null) {
+                return;
+            }
+            if (mWindowSurface == null) {
+                mWindowSurface = new WindowSurface(mEglCore, holder.getSurface(), false);
+                mWindowSurface.makeCurrent();
+                mImageFilter = MagicFilterFactory.initFilters(MagicFilterType.NONE);
+                mImageFilter.init();
+                mSurfaceFilter = new MagicSurfaceInputFilter();
+                mSurfaceFilter.init();
+                mWindowSurfaceWidth = mWindowSurface.getWidth();
+                mWindowSurfaceHeight = mWindowSurface.getHeight();
+
+                textureId = OpenGlUtils.getExternalOESTextureID();
+                mDecodeSurfaceTexture = new SurfaceTexture(textureId);
+                mSuraface = new Surface(mDecodeSurfaceTexture);
+                mDecodeSurfaceTexture.setOnFrameAvailableListener(this);
+            }
+            Log.i(TAG, "prepare====" + player.toString());
+            player.setSurface(mSuraface);
+            mMainHandler.sendPlayerReady(mPlayer);
+            updateGeometry();
+        }
+
+        private void updateGeometry() {
+            if (mVideoHeight == 0 || mWindowSurfaceWidth == 0) {
+                return;
+            }
+            int width = mWindowSurfaceWidth;
+            int height = mWindowSurfaceHeight;
+            if (mVideoWidth > 0) {
+                height = mVideoHeight * width / mVideoWidth;
+            }
+            mWindowSurfaceWidth = width;
+            mWindowSurfaceHeight = height;
+
+            if (mImageFilter == null) {
+                return;
+            }
+
+            mImageFilter.onDisplaySizeChanged(width, height);
+            mImageFilter.onInputSizeChanged(mVideoWidth, mVideoHeight);
+
+            if (mSurfaceFilter == null) {
+                return;
+            }
+            mSurfaceFilter.onDisplaySizeChanged(mVideoWidth, mVideoHeight);
+            mSurfaceFilter.onInputSizeChanged(mVideoWidth, mVideoHeight);
+            mSurfaceFilter.initSurfaceFrameBuffer(mVideoWidth, mVideoHeight);
+        }
 
 
-    private SurfaceTexture.OnFrameAvailableListener mDecodeFrameAvaliableListener = new SurfaceTexture.OnFrameAvailableListener() {
-        public void onFrameAvailable(SurfaceTexture texture) {
-//            mWindowSurface.makeCurrent();
+        @Override   // SurfaceTexture.OnFrameAvailableListener; runs on arbitrary thread
+        public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+//            Log.i(TAG,"onFrameAvailable");
+            mHandler.sendFrameAvailable();
+        }
+
+
+        float[] mtx = new float[16];
+
+
+        private void draw() {
+            mWindowSurface.makeCurrent();
+
+            GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+
+            mDecodeSurfaceTexture.getTransformMatrix(mtx);
+
+            mSurfaceFilter.setTextureTransformMatrix(mtx);
+            if (mDstType != null) {
+                mImageFilter.destroy();
+                mImageFilter = MagicFilterFactory.initFilters(mDstType);
+                mImageFilter.init();
+                mImageFilter.onDisplaySizeChanged(mWindowSurfaceWidth, mWindowSurfaceHeight);
+                mImageFilter.onInputSizeChanged(mVideoWidth, mVideoHeight);
+                mDstType = null;
+            }
+            if (mImageFilter == null) {
+                mSurfaceFilter.onDrawFrame(textureId, mGLCubeBuffer, mGLTextureBuffer);
+            } else {
+                int id = mSurfaceFilter.onDrawToTexture(textureId);
+                GlUtil.checkGlError("onDrawToTexture");
+                mImageFilter.onDrawFrame(id, mGLCubeBuffer, mGLTextureBuffer);
+                GlUtil.checkGlError("onDrawFrame");
+            }
+            mWindowSurface.swapBuffers();
+            GlUtil.checkGlError("draw done");
+
+        }
+
+
+        public void setFilter(MagicFilterType type) {
+            if (type == null) {
+                return;
+            }
+            mDstType = type;
+        }
+
+
+
+
+        public void surfaceAvailable(SurfaceHolder obj, boolean b, IMediaPlayer player) {
+            prepareSurface(obj, b, player);
+        }
+
+        /**
+         * Handles the surfaceChanged message.
+         * <p>
+         * We always receive surfaceChanged() after surfaceCreated(), but surfaceAvailable()
+         * could also be called with a Surface created on a previous run.  So this may not
+         * be called.
+         */
+        private void surfaceChanged(int width, int height) {
+            Log.d(TAG, "RenderThread surfaceChanged " + width + "x" + height);
+
+            mWindowSurfaceWidth = width;
+            mWindowSurfaceHeight = height;
+            finishSurfaceSetup();
+        }
+
+        private void finishSurfaceSetup() {
+            updateGeometry();
+        }
+
+        public void surfaceDestroyed() {
+            releaseSurface();
+        }
+
+        /**
+         * Shuts everything down.
+         */
+        private void shutdown() {
+            Log.d(TAG, "shutdown");
+            Looper.myLooper().quit();
+        }
+
+        public void frameAvailable() {
+            if (mDecodeSurfaceTexture == null) {
+                return;
+            }
             mDecodeSurfaceTexture.updateTexImage();
             draw();
         }
-    };
 
-
-    float[] mtx = new float[16];
-
-
-    private void draw() {
-        mWindowSurface.makeCurrent();
-
-        GLES20.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
-
-        mDecodeSurfaceTexture.getTransformMatrix(mtx);
-
-        mSurfaceFilter.setTextureTransformMatrix(mtx);
-        if (mImageFilterBack != null) {
-            mImageFilter.destroy();
-            mImageFilterBack.init();
-            mImageFilter = mImageFilterBack;
-            mImageFilterBack = null;
-
+        public RenderHandler getHandler() {
+            return mHandler;
         }
-        if (mImageFilter == null) {
-            mSurfaceFilter.onDrawFrame(textureId, mGLCubeBuffer, mGLTextureBuffer);
-        } else {
-            int id = mSurfaceFilter.onDrawToTexture(textureId);
-            mImageFilter.onDrawFrame(id, mGLCubeBuffer, mGLTextureBuffer);
+
+        public void videoSizeChanged(int arg1, int arg2) {
+            mVideoWidth = arg1;
+            mVideoHeight = arg2;
+            updateGeometry();
         }
-        mWindowSurface.swapBuffers();
-        GlUtil.checkGlError("draw done");
+
+        public void rotateChange(int arg1) {
+            mRotate = arg1;
+            float[] textureCords = TextureRotationUtil.getRotation(Rotation.fromInt(arg1), false, true);
+            mGLTextureBuffer.put(textureCords).position(0);
+            updateGeometry();
+        }
+    }
+
+    private static class MainHandler extends Handler {
+        private static final String TAG = "MainHandler";
+        private static final int MSG_PLAYER_AVALIABLE = 0;
+
+        private WeakReference<BBFilterVideoView> mViewRef = null;
+
+        public MainHandler(BBFilterVideoView rt) {
+            mViewRef = new WeakReference<>(rt);
+        }
+
+        public void sendPlayerReady(IMediaPlayer player) {
+            sendMessage(obtainMessage(MSG_PLAYER_AVALIABLE, 0, 0, player));
+        }
+
+        @Override  // runs on RenderThread
+        public void handleMessage(Message msg) {
+            int what = msg.what;
+            //Log.d(TAG, "RenderHandler [" + this + "]: what=" + what);
+
+            BBFilterVideoView mVideoView = mViewRef.get();
+            if (mVideoView == null) {
+                Log.w(TAG, "RenderHandler.handleMessage: weak ref is null");
+                return;
+            }
+
+            switch (what) {
+                case MSG_PLAYER_AVALIABLE:
+                    mVideoView.onPlayerReady((IMediaPlayer) msg.obj);
+                    break;
+            }
+        }
 
     }
 
-    @Override
-    public void setFilter(GPUImageFilter filter) {
-        mImageFilterBack = filter;
-        mImageFilterBack.onDisplaySizeChanged(mWindowSurfaceWidth, mWindowSurfaceHeight);
-        mImageFilterBack.onInputSizeChanged(mVideoWidth, mVideoHeight);
+
+    private static class RenderHandler extends Handler {
+        private static final String TAG = "RenderHandler";
+        private static final int MSG_SURFACE_AVAILABLE = 0;
+        private static final int MSG_SURFACE_CHANGED = 1;
+
+        private static final int MSG_SURFACE_DESTROYED = 2;
+        private static final int MSG_SHUTDOWN = 3;
+        private static final int MSG_FRAME_AVAILABLE = 4;
+        private static final int MSG_ZOOM_VALUE = 5;
+        private static final int MSG_SIZE_VALUE = 6;
+        private static final int MSG_ROTATE_VALUE = 7;
+        private static final int MSG_POSITION = 8;
+        private static final int MSG_REDRAW = 9;
+        private static final int MSG_VIDEO_SIZE_CHANGED = 10;
+        private static final int MSG_FILTER_CHANGED = 11;
+        private static final int MSG_ROTATE_CHANGED = 12;
+
+        // This shouldn't need to be a weak ref, since we'll go away when the Looper quits,
+        // but no real harm in it.
+        private WeakReference<RenderThread> mWeakRenderThread;
+
+
+        /**
+         * Call from render thread.
+         */
+        public RenderHandler(RenderThread rt) {
+            mWeakRenderThread = new WeakReference<RenderThread>(rt);
+        }
+
+        /**
+         * Sends the "surface available" message.  If the surface was newly created (i.e.
+         * this is called from surfaceCreated()), set newSurface to true.  If this is
+         * being called during Activity startup for a previously-existing surface, set
+         * newSurface to false.
+         * <p>
+         * The flag tells the caller whether or not it can expect a surfaceChanged() to
+         * arrive very soon.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendSurfaceAvailable(SurfaceHolder holder, boolean newSurface, IMediaPlayer player) {
+            UnionData union = new UnionData();
+            union.holder = holder;
+            union.player = player;
+            sendMessage(obtainMessage(MSG_SURFACE_AVAILABLE,
+                    newSurface ? 1 : 0, 0, union));
+        }
+
+        /**
+         * Sends the "surface changed" message, forwarding what we got from the SurfaceHolder.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendSurfaceChanged(@SuppressWarnings("unused") int format, int width,
+                                       int height) {
+            // ignore format
+            sendMessage(obtainMessage(MSG_SURFACE_CHANGED, width, height));
+        }
+
+        public void sendVideoChanged(int width,
+                                     int height) {
+            // ignore format
+            sendMessage(obtainMessage(MSG_VIDEO_SIZE_CHANGED, width, height));
+        }
+
+        /**
+         * Sends the "shutdown" message, which tells the render thread to halt.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendSurfaceDestroyed() {
+            sendMessage(obtainMessage(MSG_SURFACE_DESTROYED));
+        }
+
+        /**
+         * Sends the "shutdown" message, which tells the render thread to halt.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendShutdown() {
+            sendMessage(obtainMessage(MSG_SHUTDOWN));
+        }
+
+        /**
+         * Sends the "frame available" message.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendFrameAvailable() {
+            sendMessage(obtainMessage(MSG_FRAME_AVAILABLE));
+        }
+
+        public void sendFilterChanged(MagicFilterType type) {
+            sendMessage(obtainMessage(MSG_FILTER_CHANGED, 0, 0, type));
+        }
+
+        /**
+         * Sends the "zoom value" message.  "progress" should be 0-100.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendZoomValue(int progress) {
+            sendMessage(obtainMessage(MSG_ZOOM_VALUE, progress, 0));
+        }
+
+        /**
+         * Sends the "size value" message.  "progress" should be 0-100.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendSizeValue(int progress) {
+            sendMessage(obtainMessage(MSG_SIZE_VALUE, progress, 0));
+        }
+
+        /**
+         * Sends the "rotate value" message.  "progress" should be 0-100.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendRotateValue(int progress) {
+            sendMessage(obtainMessage(MSG_ROTATE_VALUE, progress, 0));
+        }
+
+        /**
+         * Sends the "position" message.  Sets the position of the rect.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendPosition(int x, int y) {
+            sendMessage(obtainMessage(MSG_POSITION, x, y));
+        }
+
+        /**
+         * Sends the "redraw" message.  Forces an immediate redraw.
+         * <p>
+         * Call from UI thread.
+         */
+        public void sendRedraw() {
+            sendMessage(obtainMessage(MSG_REDRAW));
+        }
+
+        public void sendRotateChanged(int i1) {
+            sendMessage(obtainMessage(MSG_ROTATE_CHANGED, i1, 0, null));
+        }
+
+        @Override  // runs on RenderThread
+        public void handleMessage(Message msg) {
+            int what = msg.what;
+            //Log.d(TAG, "RenderHandler [" + this + "]: what=" + what);
+
+            RenderThread renderThread = mWeakRenderThread.get();
+            if (renderThread == null) {
+                Log.w(TAG, "RenderHandler.handleMessage: weak ref is null");
+                return;
+            }
+
+            switch (what) {
+                case MSG_SURFACE_AVAILABLE:
+                    renderThread.surfaceAvailable(((UnionData) msg.obj).holder, msg.arg1 != 0, ((UnionData) msg.obj).player);
+                    break;
+                case MSG_SURFACE_CHANGED:
+                    renderThread.surfaceChanged(msg.arg1, msg.arg2);
+                    break;
+                case MSG_SURFACE_DESTROYED:
+                    renderThread.surfaceDestroyed();
+                    break;
+                case MSG_SHUTDOWN:
+                    renderThread.shutdown();
+                    break;
+                case MSG_FRAME_AVAILABLE:
+                    renderThread.frameAvailable();
+                    break;
+                case MSG_REDRAW:
+                    renderThread.draw();
+                    break;
+                case MSG_VIDEO_SIZE_CHANGED:
+                    renderThread.videoSizeChanged(msg.arg1, msg.arg2);
+                    break;
+                case MSG_FILTER_CHANGED:
+                    renderThread.setFilter((MagicFilterType) msg.obj);
+                    break;
+                case MSG_ROTATE_CHANGED:
+                    renderThread.rotateChange(msg.arg1);
+                    break;
+                default:
+                    throw new RuntimeException("unknown message " + what);
+            }
+        }
     }
+
 }

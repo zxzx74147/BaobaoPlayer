@@ -105,6 +105,9 @@ public class GPUImageFilter {
     }
 
     public final void destroy() {
+        if(!mIsInitialized){
+            return;
+        }
         mIsInitialized = false;
         GLES20.glDeleteProgram(mGLProgId);
         onDestroy();

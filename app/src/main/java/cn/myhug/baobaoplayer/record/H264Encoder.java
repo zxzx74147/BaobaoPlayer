@@ -26,6 +26,7 @@ public class H264Encoder {
     private H264EncodeConfig mConfig = null;
     private Surface mSurface = null;
     private CommonEncoderPump mPump = null;
+    private Mp4Muxer mMuxer = null;
 
 
     public H264Encoder() {
@@ -98,6 +99,7 @@ public class H264Encoder {
 
 
     public void setMuxer(Mp4Muxer muxer) {
+        mMuxer = muxer;
         // 使用 ENCODE_H264_OPENH264 直接在CDP进行调用发送接口
         if (mPump != null) {
             mPump.setMuxer(muxer);
@@ -105,9 +107,20 @@ public class H264Encoder {
     }
 
     public void reset(){
-        mMediaCodec.stop();
-        mMediaCodec.release();
+        if(mPump!=null){
+            mPump.stop();
+            mPump = null;
+        }
+        if(mMediaCodec!=null) {
+            mMediaCodec.stop();
+            mMediaCodec.release();
+            mMediaCodec = null;
+        }
         configure(mConfig);
+        mPump.setMuxer(mMuxer);
+        start();
+
+
     }
 
     public MediaFormat getFormat() {

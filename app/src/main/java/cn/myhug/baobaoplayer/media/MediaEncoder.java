@@ -99,8 +99,8 @@ public class MediaEncoder {
             }
         }
 
-        MediaFormat videoFormat = mVideoEncoder.getOutputFormat();
-        MediaFormat audioFormat = mAudioEncoder.getOutputFormat();
+//        MediaFormat videoFormat = mVideoEncoder.getOutputFormat();
+//        MediaFormat audioFormat = mAudioEncoder.getOutputFormat();
 //        mVideoTrackIndex = mMuxer.addTrack(videoFormat);
 //        mAudioTrackIndex = mMuxer.addTrack(audioFormat);
 //        mMuxer.start();
@@ -125,7 +125,7 @@ public class MediaEncoder {
         if (inputIndex >= 0) {
             if (endOfStream) {
                 if (VERBOSE) Log.d(TAG, "sending EOS to drainAudioEncoder");
-                mAudioEncoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                mAudioEncoder.queueInputBuffer(inputIndex, 0, 0, info.presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
             } else {
                 ByteBuffer buffer = mAudioEncoder.getInputBuffers()[inputIndex];
                 buffer.position(0);
@@ -207,7 +207,7 @@ public class MediaEncoder {
 
                     mMuxer.writeSampleData(mAudioTrackIndex, encodedData, mBufferInfo);
                     TimeStampLogUtil.logTimeStamp(1,"writeSampleData====");
-                    if (VERBOSE) Log.d(TAG, "sent " + mBufferInfo.size + "audio bytes to muxer");
+                    if (VERBOSE) Log.d(TAG, "sent " + mBufferInfo.size + "audio bytes to muxer"+mBufferInfo.presentationTimeUs);
                 }
 
                 mAudioEncoder.releaseOutputBuffer(encoderStatus, false);

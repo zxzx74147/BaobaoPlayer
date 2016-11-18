@@ -9,8 +9,8 @@ import android.media.MediaCodecList;
 
 public class Mp4Config {
     public static final int VIDEO_WIDTH = 480;
-    public static final int VIDEO_HEIGHT = 600;
-    public static final int VIDEO_BITRATE = 1000000;
+    public static final int VIDEO_HEIGHT = 640;
+    public static final int VIDEO_BITRATE = 1000 * 1024;
     public static final int VIDEO_I_FRAME_INTERVAL = 10;
     public static final int VIDEO_FRAME_RATE = 24;
 
