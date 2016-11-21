@@ -69,7 +69,6 @@ public class VideoEditActivity extends BaseActivity {
             public void run() {
                 if(!mBinding.videoView.isPlaying()) {
                     mBinding.videoView.setVideoURI(mSource);
-//                mBinding.videoView.setVideoURI(Uri.parse("http://2449.vod.myqcloud.com/2449_22ca37a6ea9011e5acaaf51d105342e3.f20.mp4"));
                     mBinding.videoView.start();
                     mBinding.videoView.seekTo(stopPosition);
                 }

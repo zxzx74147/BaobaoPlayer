@@ -22,12 +22,12 @@ import cn.myhug.baobaoplayer.util.TimeStampLogUtil;
 public class MediaMixer {
 
     private static final String TAG = "MediaMixer";
-    private static final boolean VERBOSE = true;           // lots of logging
+    private static final boolean VERBOSE = false;           // lots of logging
 
     private Handler mHandler = null;
-    private static final int MSG_PERCENT = 1;
-    private static final int MSG_ERROR = 2;
-    private static final int MSG_DONE = 3;
+    public static final int MSG_PERCENT = 1;
+    public static final int MSG_ERROR = 2;
+    public static final int MSG_DONE = 3;
 
     private int dealPercent = 0;
 
@@ -74,6 +74,7 @@ public class MediaMixer {
                 return false;
             }
         });
+        mEncoder.setHandler(mHandler);
     }
 
     public void setListener(IBBMediaMuxterPrgressListener listener) {
@@ -139,6 +140,7 @@ public class MediaMixer {
         try {
 
             mEncoder.prepare();
+            mEncoder.start();
             mDecoder.SurfaceDecoderPrePare(mEncoder.getEncoderSurface());
             mAudioDecoder.prepare();
             doExtract();
@@ -149,11 +151,19 @@ public class MediaMixer {
             mHandler.sendMessage(msg);
         } finally {
             mDecoder.release();
-            mEncoder.release();
             mAudioDecoder.release();
+            mDecoder = null;
+            mAudioDecoder = null;
         }
     }
 
+    public void release(){
+        if(mEncoder !=null){
+            mEncoder.release();
+            mEncoder = null;
+        }
+
+    }
     void doExtract() throws IOException {
         TimeStampLogUtil.logTimeStamp("start====");
         final int TIMEOUT_USEC = 100000;
@@ -213,7 +223,7 @@ public class MediaMixer {
                         long presentationTimeUs = mDecoder.extractor.getSampleTime();
 
                         if (mDecoder.extractor.getSampleTrackIndex() == mDecoder.mDecodeTrackVideoIndex) {
-                            long duration = mDecoder.getDuration();
+                            long duration = Math.min(mDecoder.getDuration(),Mp4Config.MAX_LEN);
                             if (duration != 0) {
                                 int percent = (int) (presentationTimeUs * 100 / duration);
                                 if (dealPercent != percent) {
@@ -320,24 +330,25 @@ public class MediaMixer {
                         if (VERBOSE) Log.d(TAG, "output EOS");
                         mAudioOutputDone = true;
                         mEncoder.drainAudioEncoder(true, null, info);
-                    }
-                    if(mAudioDecoder.hasSource()) {
-                        int length = mAudioDecoder.pumpAudioBuffer(info.size);
-                        if (VERBOSE)
-                            Log.d(TAG, String.format("decode mix audio len=%d,time=%d,audio len = %d time=%d ",
-                                    length, mAudioDecoder.latest.presentationTimeUs,
-                                    info.size, info.presentationTimeUs));
+                    }else {
+                        if (mAudioDecoder.hasSource()) {
+                            int length = mAudioDecoder.pumpAudioBuffer(info.size);
+                            if (VERBOSE)
+                                Log.d(TAG, String.format("decode mix audio len=%d,time=%d,audio len = %d time=%d ",
+                                        length, mAudioDecoder.latest.presentationTimeUs,
+                                        info.size, info.presentationTimeUs));
 
 
-                        mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes, 0, info.size);
-                        AudioUtil.mixVoice(mAudioBytes, mAudioDecoder.getResult(), info.size);
-                        mAudioByteBuffer.position(0);
-                        info.offset = 0;
-                        mAudioByteBuffer.put(mAudioBytes, 0, info.size);
-                        mAudioByteBuffer.flip();
-                        mEncoder.drainAudioEncoder(false, mAudioByteBuffer, info);
-                    }else{
-                        mEncoder.drainAudioEncoder(false, mAudioDecoderOutputBuffers[decoderStatus], info);
+                            mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes, 0, info.size);
+                            AudioUtil.mixVoice(mAudioBytes, mAudioDecoder.getResult(), info.size);
+                            mAudioByteBuffer.position(0);
+                            info.offset = 0;
+                            mAudioByteBuffer.put(mAudioBytes, 0, info.size);
+                            mAudioByteBuffer.flip();
+                            mEncoder.drainAudioEncoder(false, mAudioByteBuffer, info);
+                        } else {
+                            mEncoder.drainAudioEncoder(false, mAudioDecoderOutputBuffers[decoderStatus], info);
+                        }
                     }
                     TimeStampLogUtil.logTimeStamp("encoder drainAudioEncoder====");
                     mDecoder.mAudioDecoder.releaseOutputBuffer(decoderStatus, false);
@@ -348,7 +359,7 @@ public class MediaMixer {
         TimeStampLogUtil.logTimeStamp("game over ====");
 
 
-        mHandler.sendEmptyMessage(MSG_DONE);
+
 //        int numSaved = (MAX_FRAMES < decodeCount) ? MAX_FRAMES : decodeCount;
 //        Log.d(TAG, "Saving " + numSaved + " frames took " +
 //                (frameSaveTime / numSaved / 1000) + " us per frame");
