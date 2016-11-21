@@ -17,7 +17,6 @@ import cn.myhug.baobaoplayer.data.IntentData;
 import cn.myhug.baobaoplayer.data.RecordData;
 import cn.myhug.baobaoplayer.databinding.ActivityRecordActivtyBinding;
 import cn.myhug.baobaoplayer.edit.VideoEditActivity;
-import cn.myhug.baobaoplayer.util.FileSelectUtil;
 import cn.myhug.baobaoplayer.util.ZXActivityJumpHelper;
 
 public class RecordActivty extends BaseActivity {
@@ -96,21 +95,21 @@ public class RecordActivty extends BaseActivity {
         if(mState == STATE_RECORDING){
             return;
         }
-        FileSelectUtil.selectFile(this, "video/mp4", new FileSelectUtil.IFileSelector() {
-            @Override
-            public void onFileSelect(int resultCode, Intent data) {
-                if (resultCode == Activity.RESULT_OK) {
-                    IntentData intentData = new IntentData();
-                    intentData.uri = data.getData();
-                    ZXActivityJumpHelper.startActivity(RecordActivty.this, VideoEditActivity.class, intentData);
-                    Intent intent = new Intent();
-                    intent.setData(data.getData());
-                    setResult(Activity.RESULT_OK,intent);
-                    finish();
-                    return;
-                }
-            }
-        });
+//        FileSelectUtil.selectFile(this, "video/mp4", new FileSelectUtil.IFileSelector() {
+//            @Override
+//            public void onFileSelect(int resultCode, Intent data) {
+//                if (resultCode == Activity.RESULT_OK) {
+//                    IntentData intentData = new IntentData();
+//                    intentData.uri = data.getData();
+//                    ZXActivityJumpHelper.startActivity(RecordActivty.this, VideoEditActivity.class, intentData);
+//                    Intent intent = new Intent();
+//                    intent.setData(data.getData());
+//                    setResult(Activity.RESULT_OK,intent);
+//                    finish();
+//                    return;
+//                }
+//            }
+//        });
     }
 
     public void onDelete(View v) {

@@ -17,10 +17,10 @@ import cn.myhug.baobaoplayer.PlayerApplication;
  */
 public class AudioDecoder {
 
-    private static final String TAG = "MediaMixer";
+    private static final String TAG = "AudioDecoder";
     private static final boolean VERBOSE = false;           // lots of logging
-    public static final int BUFFER_LEN = 1024 * 32;
-    public static final int TIMEOUT_USEC = 100000;
+    public static final int BUFFER_LEN = 1024 * 256;
+    public static final int TIMEOUT_USEC = 10000;
 
     MediaCodec mAudioDecoder = null;
 
@@ -42,7 +42,7 @@ public class AudioDecoder {
     private int mLeftLen = 0;
 
 
-    void prepare() throws IOException {
+    public void prepare() throws IOException {
         extractor = new MediaExtractor();
         try {
             if (fileDescriptor != null) {
@@ -61,6 +61,7 @@ public class AudioDecoder {
         //Audio
         mDecodeTrackAudioIndex = selectAudioTrack(extractor);
         if (mDecodeTrackAudioIndex < 0) {
+            extractor = null;
             throw new RuntimeException("No video track found in " + uri.getPath());
         }
         extractor.selectTrack(mDecodeTrackAudioIndex);
@@ -153,7 +154,7 @@ public class AudioDecoder {
                 int chunkSize = extractor.readSampleData(buffer, 0);
                 if (chunkSize > 0) {
                     long presentationTimeUs = extractor.getSampleTime();
-                    mAudioDecoder.queueInputBuffer(inputIndex, 0, chunkSize, presentationTimeUs, 0 /*flags*/);
+                    mAudioDecoder.queueInputBuffer(inputIndex, 0, chunkSize, presentationTimeUs, extractor.getSampleFlags() /*flags*/);
                     outputIndex = mAudioDecoder.dequeueOutputBuffer(latest, TIMEOUT_USEC);
                 } else {
                     extractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
@@ -171,28 +172,24 @@ public class AudioDecoder {
             }
             if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
                 // no output available yet
-                if (VERBOSE) Log.d(TAG, "no output from mVideoDecoder available");
+                if (VERBOSE) Log.d(TAG, "no output from mAudioDecoder available");
             } else if (outputIndex == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
                 // not important for us, since we're using Surface
-                if (VERBOSE) Log.d(TAG, "mVideoDecoder output buffers changed");
+                if (VERBOSE) Log.d(TAG, "mAudioDecoder output buffers changed");
             } else if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 MediaFormat newFormat = mAudioDecoder.getOutputFormat();
-                if (VERBOSE) Log.d(TAG, "mVideoDecoder output format changed: " + newFormat);
+                if (VERBOSE) Log.d(TAG, "mAudioDecoder output format changed: " + newFormat);
             } else if (outputIndex < 0) {
 
-            } else { // decoderStatus >= 0
-                if (VERBOSE) Log.d(TAG, "surface mVideoDecoder given buffer " + outputIndex +
-                        " (size=" + latest.size + ")");
-                if ((latest.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
-                    if (VERBOSE) Log.d(TAG, "output EOS");
-                }
+            } else {
                 ByteBuffer decodeBuffer = mAudioDecoder.getOutputBuffers()[outputIndex];
                 decodeBuffer.get(mMixAudioBuffer, mLeftLen, latest.size);
                 mLeftLen += latest.size;
                 mAudioDecoder.releaseOutputBuffer(outputIndex, false);
             }
             loopCount++;
-            if (loopCount > 16) {
+            if (loopCount > 72) {
+                if (VERBOSE) Log.d(TAG, "extractor fail");
                 extractor = null;
                 break;
             }

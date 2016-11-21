@@ -148,7 +148,7 @@
                 android:drawableTop="@drawable/icon_xiaosp_photo_upload"
                 android:onClick="@{handlers::onSelectFile}"
                 android:text="@string/upload_file"
-                android:visibility="@{data.duration==0? View.VISIBLE:View.GONE}" />
+                android:visibility="@{data.duration==0? View.GONE:View.GONE}" />
 
             <Button
                 android:id="@+id/delete"

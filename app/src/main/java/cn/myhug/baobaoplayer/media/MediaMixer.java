@@ -242,7 +242,7 @@ public class MediaMixer {
                             mVideoChunkSize++;
                         } else if (mDecoder.extractor.getSampleTrackIndex() == mDecoder.mDecodeTrackAudioIndex) {
                             mDecoder.mAudioDecoder.queueInputBuffer(inputIndex, 0, chunkSize,
-                                    presentationTimeUs, 0 /*flags*/);
+                                    presentationTimeUs, mDecoder.extractor.getSampleFlags() /*flags*/);
                             if (VERBOSE) {
                                 Log.d(TAG, "submitted audio frame " + mAudioChunkSize + " to dec, size=" +
                                         chunkSize);
@@ -331,23 +331,26 @@ public class MediaMixer {
                         mAudioOutputDone = true;
                         mEncoder.drainAudioEncoder(true, null, info);
                     }else {
-                        if (mAudioDecoder.hasSource()) {
-                            int length = mAudioDecoder.pumpAudioBuffer(info.size);
-                            if (VERBOSE)
+                        if(info.size>0) {
+                            if (mAudioDecoder.hasSource()) {
+                                int length = mAudioDecoder.pumpAudioBuffer(info.size);
+//                            if (VERBOSE)
                                 Log.d(TAG, String.format("decode mix audio len=%d,time=%d,audio len = %d time=%d ",
                                         length, mAudioDecoder.latest.presentationTimeUs,
                                         info.size, info.presentationTimeUs));
 
-
-                            mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes, 0, info.size);
-                            AudioUtil.mixVoice(mAudioBytes, mAudioDecoder.getResult(), info.size);
-                            mAudioByteBuffer.position(0);
-                            info.offset = 0;
-                            mAudioByteBuffer.put(mAudioBytes, 0, info.size);
-                            mAudioByteBuffer.flip();
-                            mEncoder.drainAudioEncoder(false, mAudioByteBuffer, info);
-                        } else {
-                            mEncoder.drainAudioEncoder(false, mAudioDecoderOutputBuffers[decoderStatus], info);
+                                mAudioDecoderOutputBuffers[decoderStatus].position(info.offset);
+                                mAudioDecoderOutputBuffers[decoderStatus].limit(info.offset + info.size);
+                                mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes, 0, info.size);
+                                AudioUtil.mixVoice(mAudioBytes, mAudioDecoder.getResult(), Math.min(length, info.size));
+                                mAudioByteBuffer.position(0);
+                                info.offset = 0;
+                                mAudioByteBuffer.put(mAudioBytes, 0, info.size);
+                                mAudioByteBuffer.flip();
+                                mEncoder.drainAudioEncoder(false, mAudioByteBuffer, info);
+                            } else {
+                                mEncoder.drainAudioEncoder(false, mAudioDecoderOutputBuffers[decoderStatus], info);
+                            }
                         }
                     }
                     TimeStampLogUtil.logTimeStamp("encoder drainAudioEncoder====");
@@ -360,9 +363,6 @@ public class MediaMixer {
 
 
 
-//        int numSaved = (MAX_FRAMES < decodeCount) ? MAX_FRAMES : decodeCount;
-//        Log.d(TAG, "Saving " + numSaved + " frames took " +
-//                (frameSaveTime / numSaved / 1000) + " us per frame");
     }
 
 
