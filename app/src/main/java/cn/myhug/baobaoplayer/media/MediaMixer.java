@@ -332,15 +332,14 @@ public class MediaMixer {
                         mEncoder.drainAudioEncoder(true, null, info);
                     }else {
                         if(info.size>0) {
+                            mAudioDecoderOutputBuffers[decoderStatus].position(info.offset);
+                            mAudioDecoderOutputBuffers[decoderStatus].limit(info.offset + info.size);
                             if (mAudioDecoder.hasSource()) {
                                 int length = mAudioDecoder.pumpAudioBuffer(info.size);
 //                            if (VERBOSE)
                                 Log.d(TAG, String.format("decode mix audio len=%d,time=%d,audio len = %d time=%d ",
                                         length, mAudioDecoder.latest.presentationTimeUs,
                                         info.size, info.presentationTimeUs));
-
-                                mAudioDecoderOutputBuffers[decoderStatus].position(info.offset);
-                                mAudioDecoderOutputBuffers[decoderStatus].limit(info.offset + info.size);
                                 mAudioDecoderOutputBuffers[decoderStatus].get(mAudioBytes, 0, info.size);
                                 AudioUtil.mixVoice(mAudioBytes, mAudioDecoder.getResult(), Math.min(length, info.size));
                                 mAudioByteBuffer.position(0);
